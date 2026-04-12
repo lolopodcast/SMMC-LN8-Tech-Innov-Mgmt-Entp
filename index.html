@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Tech Innovation Management & Entrepreneurship</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tech Innovation Management – 科技創新管理互動學習</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -26,45 +27,459 @@ tailwind.config = {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 .dark ::-webkit-scrollbar-thumb { background: #475569; }
+
+/* 版權提示彈窗動畫 */
+@keyframes popIn { 0% { opacity: 0; transform: translate(-50%, -40%); } 100% { opacity: 1; transform: translate(-50%, -50%); } }
+.copyright-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: #004438; color: #E3B152; padding: 15px 30px; border-radius: 8px; font-family: 'Merriweather', serif; font-weight: bold; font-size: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); z-index: 99999; pointer-events: none; animation: popIn 0.3s ease-out forwards; transition: opacity 0.3s ease-out; }
 </style>
+
+<!-- 前端防禦腳本 (SPA Skill Myself 0412a版規範) -->
+<script>
+  if (window.top !== window.self) { window.top.location = window.self.location; }
+  const allowedDomains = ['localhost', '127.0.0.1', 'lolopodcast.github.io', ''];
+  const hostname = window.location.hostname;
+  const isPreviewSandbox = hostname.includes('sandbox') || hostname.includes('preview') || hostname.includes('googleusercontent') || hostname.includes('cdpn.io');
+  if (!allowedDomains.includes(hostname) && !isPreviewSandbox) {
+    window.location.href = 'https://www.ibs.ncnu.edu.tw/index.php/faculty/tenured-professor/299-smlo';
+  }
+
+  function showCopyrightMsg() {
+    let modal = document.getElementById('copyright-msg-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'copyright-msg-modal';
+      modal.className = 'copyright-modal';
+      modal.innerText = 'Intellectual Property of Prof. Shihmin Lo';
+      document.body.appendChild(modal);
+    }
+    modal.style.animation = 'none';
+    modal.offsetHeight; 
+    modal.style.animation = 'popIn 0.3s ease-out forwards';
+    modal.style.opacity = '1';
+    
+    if(window.copyrightTimer) clearTimeout(window.copyrightTimer);
+    window.copyrightTimer = setTimeout(() => {
+      let currentModal = document.getElementById('copyright-msg-modal');
+      if(currentModal) {
+        currentModal.style.animation = 'none'; 
+        currentModal.style.opacity = '0';      
+        setTimeout(() => { if (currentModal.parentNode) currentModal.parentNode.removeChild(currentModal); }, 300);
+      }
+    }, 2000);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('dragstart', (e) => {
+      if (e.target.tagName.toLowerCase() === 'img' || e.target.tagName.toLowerCase() === 'svg') e.preventDefault();
+    });
+    document.addEventListener('contextmenu', (e) => {
+      const selection = window.getSelection().toString();
+      if (selection.length === 0 || e.target.tagName.toLowerCase() === 'img' || e.target.tagName.toLowerCase() === 'svg') {
+        e.preventDefault(); showCopyrightMsg();
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'F12') { e.preventDefault(); showCopyrightMsg(); }
+      if (e.ctrlKey && e.key.toLowerCase() === 'u') { e.preventDefault(); showCopyrightMsg(); }
+      if (e.ctrlKey && e.shiftKey && ['i', 'j', 'c'].includes(e.key.toLowerCase())) { e.preventDefault(); showCopyrightMsg(); }
+    });
+  });
+</script>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
 const { useState, useEffect, useRef } = React;
 
-/* ── Icons ── */
-const IconBookOpen = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>;
-const IconAlertTriangle = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
-const IconCheckCircle = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>;
-const IconGlobe = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>;
-const IconChevronRight = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="9 18 15 12 9 6"/></svg>;
-const IconChevronUp = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="18 15 12 9 6 15"/></svg>;
-const IconMenu = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>;
-const IconX = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
-const IconMoon = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>;
-const IconSun = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>;
-const IconPlay = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="5 3 19 12 5 21 5 3"/></svg>;
-const IconPause = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>;
-const IconSquare = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>;
-const IconArrowRight = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>;
-const IconActivity = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
-const IconCpu = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>;
-const IconTrendingUp = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>;
-const IconLayers = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>;
-const IconFlag = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>;
-const IconZap = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>;
-const IconFlask = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 3h6v7l5 8H4l5-8V3z"/><line x1="8" y1="1" x2="16" y2="1"/></svg>;
-const IconZapLab = ({size=24,className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/><circle cx="18" cy="5" r="3"/></svg>;
+/* ═══════ SVG ICONS ═══════ */
+const IconBookOpen = ({size=24,className=""}) => <svg draggable="false" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>;
+const IconGlobe = ({size=24,className=""}) => <svg draggable="false" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>;
+const IconChevronRight = ({size=24,className=""}) => <svg draggable="false" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="9 18 15 12 9 6"/></svg>;
+const IconChevronUp = ({size=24,className=""}) => <svg draggable="false" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="18 15 12 9 6 15"/></svg>;
+const IconMenu = ({size=24,className=""}) => <svg draggable="false" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>;
+const IconX = ({size=24,className=""}) => <svg draggable="false" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
+const IconMoon = ({size=24,className=""}) => <svg draggable="false" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>;
+const IconSun = ({size=24,className=""}) => <svg draggable="false" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>;
+const IconPlay = ({size=24,className=""}) => <svg draggable="false" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="5 3 19 12 5 21 5 3"/></svg>;
+const IconPause = ({size=24,className=""}) => <svg draggable="false" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>;
+const IconSquare = ({size=24,className=""}) => <svg draggable="false" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>;
+const IconArrowRight = ({size=24,className=""}) => <svg draggable="false" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>;
+const IconActivity = ({size=24,className=""}) => <svg draggable="false" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
+const IconLightbulb = ({size=24,className=""}) => <svg draggable="false" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2v1"/><path d="M12 7v1"/><path d="M15 18a5 5 0 1 0-6 0"/></svg>;
+const IconTrendingUp = ({size=24,className=""}) => <svg draggable="false" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>;
+const IconCompass = ({size=24,className=""}) => <svg draggable="false" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>;
+const IconShareNodes = ({size=24,className=""}) => <svg draggable="false" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>;
+const IconUsers = ({size=24,className=""}) => <svg draggable="false" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
+const IconZapLab = ({size=24,className=""}) => <svg draggable="false" xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/><circle cx="18" cy="18" r="4"/></svg>;
 
-/* ── FlipCard ── */
+/* ═══════ DICT ═══════ */
+const dict = {
+zh: {
+brand:"TIME",title:"科技創新管理與創業",subtitle:"技術演化、標準戰役與創新組織",
+nav_modules:"單元目錄",nav_prev:"上一單元",nav_next:"下一單元",
+key_terms:"關鍵專有名詞",flip_prompt:"點擊翻轉",audio_read:"語音導覽",
+quiz_title:"模組知識檢定（隨機 4 題）",
+submit:"提交答案",retry:"重新測驗",score:"得分",correct:"正確",incorrect:"錯誤",explanation:"解析",
+analytics_title:"學習歷程分析",analytics_desc:"追蹤你的學習時間、互動行為與測驗表現，匯出 CSV 歸檔。",
+analytics_form_title:"基本資料",analytics_group:"組別",analytics_dept:"系級",
+analytics_dept_ph:"例：IBS3",analytics_id:"學號",analytics_id_ph:"例：112212099",
+analytics_name:"姓名",analytics_name_ph:"例：Jimmy Lo",
+analytics_export_csv:"匯出 CSV 歷程記錄",analytics_fill_required:"請填寫完整資訊以解鎖匯出",
+group_options:["G1","G2","G3","G4","G5","G6","G7","G8","G9","G10","G11","G12","Others"],
+analytics_total_time:"總學習時間",analytics_total_clicks:"總互動點擊",analytics_overall_acc:"總體測驗答對率",
+analytics_module:"模組",analytics_time:"停留時間",analytics_clicks:"點擊次數",analytics_acc:"答對率",
+analytics_correct_ans_total:"最新答對 / 最新填答 / 模組總題數",analytics_no_data:"尚未測驗",analytics_sec:"秒",analytics_times:"次",
+
+m0_nav:"0. 課程總覽",
+m0_title:"科技創新管理與創業 (TIME)",
+m0_intro:"本模組專注於科技與創新策略。從創新與發明的差異、技術 S 曲線演化，到平台經濟的網路外部性與內部創業組織設計。協助你掌握在科技驅動的動態環境中，企業如何獲取並維持創新的經濟租金。",
+m0_why:"為什麼創新管理如此關鍵？",
+m0_why_desc:"創新是推動經濟與企業成長的根本引擎。然而，卓越的發明未必能轉化為商業成功（如 EMI 的 CT 掃描儀）。策略的核心在於建構獨佔性機制與互補資產，確保創新者能真正「捕獲」其創造的價值。",
+m0_modules:[
+  {num:"01",title:"創新與競爭優勢",desc:"發明 vs 創新、獨佔性體制 (Appropriability)、互補資產與領先時間"},
+  {num:"02",title:"技術演化與破壞性創新",desc:"S 曲線模型、Christensen 破壞性創新理論、架構與元件創新"},
+  {num:"03",title:"進入時機與創新策略",desc:"先發優勢與劣勢、快速跟隨者策略、風險管理與實質選擇權"},
+  {num:"04",title:"標準戰役與平台生態系",desc:"網路外部性、鎖定效應、贏家通吃市場與平台包圍策略"},
+  {num:"05",title:"創新組織與內部創業",desc:"結構性雙元、臭鼬工廠 (Skunk Works)、跨功能團隊與開放式創新"}
+],
+m0_stats:[
+  {val:"Teece",label:"獨佔性體制模型"},
+  {val:"S-Curve",label:"技術生命週期"},
+  {val:"Network",label:"網路外部效應"},
+  {val:"5",label:"學習模組"}
+],
+m0_start:"開始學習 →",
+
+m1_nav:"1. 創新與優勢",m1_title:"創新與競爭優勢的獲取",
+m1_p1:"發明 (Invention) 是新知識或新概念的創造；創新 (Innovation) 則是將發明成功商業化。發明家經常無法從其發明中獲利，因為價值的分配取決於「獨佔性體制」(Regime of Appropriability)。",
+m1_p2:"「創新者能否獲利，取決於模仿的難易程度，以及誰擁有將創新推向市場所需的互補資產。」—— David Teece",
+m1_p3:"Teece 提出四大決定創新獲利的因素：智慧財產權保護（專利、版權等）、知識的隱性程度（越隱性越難模仿）、領先時間（Lead time，將技術領先轉化為市場地位），以及互補資產（製造、行銷、通路、售後服務等）。",
+m1_p4:"當 IP 保護較弱且互補資產掌握在既有大企業手中時（緊密專屬性），發明者往往被迫授權或被併購；若創新者能掌控互補資產並建立領先優勢，則能成為市場的最終贏家。",
+m1_cards:[
+  {title:"EMI 與 CT 掃描儀",desc:"EMI 發明了 CT 掃描儀，但因缺乏全球醫療設備的行銷、銷售與服務網絡（互補資產），最終被 GE 和 Siemens 等巨頭反超並逐出市場。"},
+  {title:"專利保護的侷限",desc:"除製藥和化學等少數產業外，專利往往無法有效阻止模仿（對手可迴避設計）。領先時間與互補資產通常是更可靠的保護機制。"},
+  {title:"互補資產的重要性",desc:"Apple 的 iPod 並非史上第一款 MP3，但它透過 iTunes 商店、設計美學與零售通路等互補資產，成功霸佔了數位音樂市場。"},
+  {title:"默會知識 (Tacit Knowledge)",desc:"無法輕易編碼為文字或圖紙的知識。高度依賴默會知識的創新，其自然模仿壁壘極高。"}
+],
+m1_terms:[
+  {front:"Regime of Appropriability\n獨佔性體制",back:"決定創新者能從其創新中捕獲多少價值的環境條件。包含智財保護強度、知識隱性程度等。"},
+  {front:"Complementary Assets\n互補資產",back:"將創新成功商業化所需的額外資源，如製造能力、分銷通路、品牌聲譽和售後服務網絡。"},
+  {front:"Lead Time\n領先時間",back:"創新者在競爭對手成功模仿前所擁有的時間優勢，可用來攀升學習曲線、建立品牌忠誠度。"}
+],
+m1_q:[
+  {q:"發明 (Invention) 與創新 (Innovation) 的主要區別是？",opts:["發明是科技，創新是管理","發明是新概念創造，創新是將其商業化","兩者完全相同","創新必定申請專利"],ans:1,exp:"發明是新知識的產出，創新則是將這些知識轉化為具商業價值的產品或流程。"},
+  {q:"EMI 的 CT 掃描儀失敗，最能說明以下哪個概念的重要性？",opts:["專利保護","先發優勢","互補資產 (Complementary Assets)","默會知識"],ans:2,exp:"EMI 擁有技術先發優勢與專利，但缺乏全球醫療市場的行銷與服務通路（互補資產），最終敗給 GE。"},
+  {q:"Teece 認為，在弱智財保護且互補資產很重要的產業中，誰最容易獲利？",opts:["原始發明家","擁有互補資產的跟隨者 (Followers)","創投機構","政府"],ans:1,exp:"在這種體制下，擁有製造、行銷等互補資產的大型既有企業（通常是跟隨者）最容易攫取創新的利潤。"},
+  {q:"以下哪一項不是決定創新獲利能力的四大要素之一？",opts:["智慧財產權","領先時間","政府補助","互補資產"],ans:2,exp:"Teece 的模型包含：智財保護、知識的性質（隱性/顯性）、領先時間、互補資產。"},
+  {q:"專利在多數產業中無法有效保護創新的主要原因是？",opts:["申請費用太高","競爭對手容易進行「迴避設計」(Invent around)","專利局審查太慢","政府不保護"],ans:1,exp:"實證研究顯示，在多數產業中，對手能透過略微改變設計來避開專利範圍（迴避設計）。"},
+  {q:"Apple iPod 的成功主要基於？",opts:["最早發明 MP3","最低的製造成本","結合 iTunes 的強大互補資產與生態系","最強的專利訴訟"],ans:2,exp:"Apple 雖非首創，但憑藉優異設計與 iTunes 生態系（互補資產）取得統治地位。"},
+  {q:"什麼是「默會知識」(Tacit Knowledge)？",opts:["寫在專利說明書上的知識","必須透過實踐與經驗傳遞，難以編碼的知識","存在電腦程式中的知識","大眾皆知的常識"],ans:1,exp:"默會知識難以寫成手冊，因此對手極難輕易複製模仿。"},
+  {q:"領先時間 (Lead Time) 為何重要？",opts:["可以申請更多專利","讓企業有時間攀升學習曲線並鎖定客戶","可以直接消滅對手","節省研發成本"],ans:1,exp:"領先時間本身無法阻止模仿，但它給予創新者建立品牌、降低成本與建立互補資產的寶貴窗口。"}
+],
+
+m2_nav:"2. 演化與破壞",m2_title:"技術演化與破壞性創新",
+m2_p1:"技術的績效演進通常呈現 S 曲線 (S-Curve)：初期進步緩慢（基礎研究期）、隨後呈指數型成長（爆發期），最後當技術接近物理極限時，成長趨緩（成熟期）。新的技術軌跡最終會以新的 S 曲線取代舊技術。然而，企業常在成熟期過度投資於舊技術，錯失轉換時機。",
+m2_p2:"Clayton Christensen 的「破壞性創新」(Disruptive Innovation) 解釋了為何優秀的企業會失敗：它們太過專注於傾聽最佳客戶的需求，持續進行「維持性創新」(Sustaining Innovation)，導致產品性能過剩。",
+m2_p3:"破壞性創新通常從低階市場 (Low-end) 或新市場 (New-market) 切入。初期產品性能較差，但具備便宜、簡單、便利等新屬性。當破壞性技術的績效逐漸提升，越過主流客戶的「足夠好」(Good enough) 門檻時，便會迅速顛覆既有企業。",
+m2_p4:"Henderson 與 Clark 將創新分為「元件創新」(改進單一部件) 與「架構創新」(重組元件間的連結方式)。既有企業往往在架構創新中敗北，因為其組織結構與資訊溝通管道已與舊架構深深綁定。",
+m2_cards:[
+  {title:"維持性 vs. 破壞性創新",desc:"維持性：改善既有產品性能（如 Intel 更快的 CPU）。破壞性：提供更簡單、便宜的替代方案（如早期的 PC 顛覆大型主機）。"},
+  {title:"低階市場突破",desc:"破壞者避開主流市場的正面交鋒，專注於被既有企業忽視（因利潤率過低）的邊緣客戶，隨後逐步向上升級。"},
+  {title:"Kodak 的陷阱",desc:"Kodak 其實發明了數位相機，但因為其利潤高度依賴底片（互補資產鎖定），且早期數位相機畫質差（典型的破壞性特徵），最終被顛覆。"},
+  {title:"架構創新障礙",desc:"當產品架構改變（如從落地風扇變為吊扇），既有企業的部門溝通機制會失效，導致無法適應新架構的產品開發。"}
+],
+m2_terms:[
+  {front:"Disruptive Innovation\n破壞性創新",back:"初期性能低於主流產品，但具備便宜/簡單等特質，從低階或新市場切入，最終顛覆主流市場的創新。"},
+  {front:"S-Curve\n技術 S 曲線",back:"描述技術績效隨時間或工程投入的演進軌跡，經歷緩慢起步、加速成長與最終成熟飽和三個階段。"},
+  {front:"Architectural Innovation\n架構創新",back:"不改變核心元件的設計，但改變元件之間連結與互動方式的創新。常令既有優勢企業措手不及。"}
+],
+m2_q:[
+  {q:"S 曲線模型中，技術發展到後期成長趨緩的原因是？",opts:["研發經費減少","市場需求下降","技術接近其自然或物理極限","對手太多"],ans:2,exp:"當技術成熟時，受限於物理或化學極限，投入大量研發也只能獲得微小的性能提升。"},
+  {q:"根據 Christensen 的理論，既有大企業為何容易被破壞性創新打敗？",opts:["因為他們技術落後","因為他們不願投資研發","因為他們過度專注於滿足最挑剔/利潤最高的現有客戶","因為他們缺乏資金"],ans:2,exp:"這被稱為「創新者的窘境」：大企業因過度理性的資源分配（傾聽現有最佳客戶），反而忽視了從低階市場崛起的威脅。"},
+  {q:"破壞性創新初期的典型特徵是什麼？",opts:["性能比主流產品更好","價格昂貴、專注高階市場","性能較差，但更便宜、簡單或便利","需要極高的技術門檻"],ans:2,exp:"破壞性技術初期在主流性能指標上表現較差，但具備新的價值屬性（如體積小、便攜、便宜）。"},
+  {q:"Henderson 與 Clark 定義的「架構創新」是指？",opts:["更換所有核心元件","重組現有元件之間的連結與互動方式","改變產品的外觀顏色","降低製造成本"],ans:1,exp:"架構創新維持了既有元件的核心概念，但改變了它們整合與互動的整體系統架構。"},
+  {q:"Kodak 面對數位相機的失敗，最能用哪種概念解釋？",opts:["維持性創新陷阱","破壞性創新與互補資產鎖定（底片利潤）","缺乏研發能力","專利過期"],ans:1,exp:"Kodak 發明了數位相機，但因其核心獲利模式依賴底片（Razor and blades model），導致組織抗拒自我破壞。"},
+  {q:"破壞性技術何時會開始大量搶占主流市場？",opts:["剛推出時","當其性能越過主流客戶的「足夠好」(Good enough) 門檻時","當政府給予補貼時","當其價格變得比舊技術貴時"],ans:1,exp:"當破壞性技術持續進步，達到主流客戶最低可接受的性能標準時，其低價/便利優勢將促發大規模替代。"},
+  {q:"以下何者是典型的「維持性創新」(Sustaining Innovation)？",opts:["第一台個人電腦","第一台數位相機","Intel 推出速度更快的下一代微處理器","Airbnb 取代傳統飯店"],ans:2,exp:"Intel 提升 CPU 速度是為了滿足現有高階客戶對更高效能的需求，屬於維持性創新。"},
+  {q:"為什麼既有大企業通常能在「維持性創新」的競爭中勝出？",opts:["因為他們有政府保護","因為維持性創新符合他們的既有商業模式、客戶需求與資源配置","因為對手太弱","因為他們產品便宜"],ans:1,exp:"大企業在推動維持性創新時，擁有充足資源且方向符合其現有獲利模式，因此通常能擊敗新創。"}
+],
+
+m3_nav:"3. 創新策略",m3_title:"進入時機與創新策略",
+m3_p1:"制定創新策略的核心抉擇之一是「進入時機」(Timing of Entry)。市場通常將進入者分為先發者 (First-movers)、早期跟隨者 (Early followers/Fast followers) 與晚進者 (Late entrants)。",
+m3_p2:"先發者優勢 (First-Mover Advantages) 包括：建立品牌忠誠度與技術領導地位、搶佔稀缺資源（如最佳零售通路或關鍵供應商）、利用轉換成本鎖定客戶，以及率先攀升經驗曲線。然而，先發者也面臨極高風險：研發成本高昂、市場需求不確定、早期技術不成熟，以及可能陷入尚未確立的主導設計 (Dominant Design) 陷阱。",
+m3_p3:"快速跟隨者策略 (Fast Follower) 通常更具吸引力。跟隨者可以觀察先發者的錯誤，避免巨大的早期試錯成本，並利用更成熟的技術與確定的客戶偏好進行產品改良（如 Apple 的 iPhone 與 Google 的 Android）。",
+m3_p4:"管理創新風險的關鍵在於策略彈性。實質選擇權 (Real Options) 觀點建議企業應該進行多項小規模的探索性投資，保留未來擴大投資的權利，而非一開始就將所有資源押注單一技術。此外，透過策略聯盟、合資與授權，也能有效分攤研發成本與風險。",
+m3_cards:[
+  {title:"先發優勢的迷思",desc:"實證研究顯示，真正的「先發者」失敗率極高。最終主導市場的往往是「早期跟隨者」，他們擁有雄厚的行銷與製造資源（互補資產）。"},
+  {title:"實質選擇權 (Real Options)",desc:"將金融選擇權概念應用於研發策略。投資一個原型或先期研究，等於買入一個「買權」(Call option)，若市場明朗則行使權利（大規模投資），否則放棄（損失有限）。"},
+  {title:"Apple 作為快速跟隨者",desc:"Apple 幾乎從不是第一家推出新科技的公司（MP3, 智慧型手機, 平板, 智慧手錶）。其策略是等待市場萌芽，然後以卓越的設計與使用者體驗重新定義產品。"},
+  {title:"轉換成本鎖定",desc:"先發者若能建立高昂的轉換成本（如軟體學習成本、資料轉移困難），即使後進者技術更優，客戶也不願輕易轉換。"}
+],
+m3_terms:[
+  {front:"First-Mover Advantage\n先發優勢",back:"率先進入市場所獲得的競爭優勢，包括品牌建立、資源搶佔、經驗曲線效應與客戶鎖定。"},
+  {front:"Fast Follower Strategy\n快速跟隨者策略",back:"避免成為第一個測試市場的白老鼠，等先發者驗證市場需求後，迅速以改良、更成熟的產品切入並奪取市場。"},
+  {front:"Real Options\n實質選擇權",back:"在高度不確定環境下，透過階段性、小規模投資保留未來選擇彈性的策略思維方法。"}
+],
+m3_q:[
+  {q:"下列何者不是「先發優勢」(First-Mover Advantage) 的來源？",opts:["建立品牌忠誠度","搶佔稀缺資源","節省初期的市場教育與試錯成本","率先攀升經驗曲線"],ans:2,exp:"節省試錯成本與市場教育費用是「跟隨者」的優勢，先發者通常必須承擔這些高昂成本。"},
+  {q:"在創新策略中，應用「實質選擇權」(Real Options) 的主要目的是？",opts:["為了炒作公司股價","在高度不確定性下，透過階段性小額投資降低風險並保留彈性","為了立刻擊敗所有競爭對手","完全外包所有研發"],ans:1,exp:"實質選擇權鼓勵企業將大投資拆解為一系列階段性決策，根據市場訊號決定是否繼續推進。"},
+  {q:"Apple 在智慧型手機市場的策略最適合描述為？",opts:["絕對的先發者","早期跟隨者 / 快速跟隨者","晚進低價者","利基市場防守者"],ans:1,exp:"Apple 並非最早發明智慧型手機的企業，而是等待技術成熟後，以優異的 UI 與生態系快速跟隨並重新定義市場。"},
+  {q:"先發者面臨的主要劣勢 (Disadvantages) 是什麼？",opts:["無法申請專利","面臨極高的技術不確定性與市場教育成本","無法建立品牌","無法獲得供應商支持"],ans:1,exp:"先發者最大的風險在於：投資於錯誤的技術規格（主導設計尚未確立），或花費巨資教育市場卻被對手坐享其成。"},
+  {q:"如果一個產業存在極高的「轉換成本」(Switching Costs)，這對誰最有利？",opts:["先發者","晚進者","創投機構","政府"],ans:0,exp:"高轉換成本使得早期累積的客戶難以流失，這大幅放大了先發者搶佔市場份額的優勢。"},
+  {q:"企業透過合資 (Joint Ventures) 進行創新研發的主要動機之一是？",opts:["為了壟斷市場","分攤高昂的研發成本與風險，並獲取互補資源","為了逃避稅務","為了降低員工薪資"],ans:1,exp:"合資與策略聯盟能讓企業結合彼此的優勢（如技術與通路），並共同分擔高昂的創新風險。"},
+  {q:"實證研究對於「先發者優勢」的普遍結論為何？",opts:["先發者永遠是最終的贏家","先發者的失敗率極高，成功者常被神話，這被稱為倖存者偏差","晚進者絕不可能成功","先發者從不需要互補資產"],ans:1,exp:"許多文獻（如 Tellis & Golder 的研究）指出，我們常高估了先發優勢，因為多數失敗的先發者已被歷史遺忘。"},
+  {q:"在主導設計 (Dominant Design) 尚未確立前，企業最適當的策略是？",opts:["將所有資源押注單一技術","保持技術彈性，參與標準制定，延遲大規模的專用資產投資","立刻退出市場","全面降價促銷"],ans:1,exp:"在技術規格混沌期，保持彈性與參與多項技術選項（實質選擇權）是降低風險的最佳策略。"}
+],
+
+m4_nav:"4. 標準與平台",m4_title:"標準戰役與平台生態系",
+m4_p1:"在許多科技與數位市場中，產品的價值不僅取決於其本身的功能（獨立效用），更取決於「有多少其他人也在使用它」——這被稱為網路外部性 (Network Externalities) 或網路效應。",
+m4_p2:"「在網路市場中，贏家通吃。建立龐大的安裝基礎 (Installed Base) 比擁有最卓越的技術更為重要。」—— 平台經濟學基本法則",
+m4_p3:"網路效應推動了「主導設計」與「技術標準」的確立。市場往往會出現「傾斜點」(Tipping Point)：一旦某個技術的市佔率超過該臨界點，正回饋機制將使其迅速壟斷市場，形成贏家通吃 (Winner-take-all) 局面。這也是為何在標準戰役（如 VHS vs. Betamax，Blu-ray vs. HD-DVD）中，企業願意在初期虧本銷售，以求快速擴大市佔率。",
+m4_p4:"現代科技競爭已演變為「平台生態系」的競爭。雙邊平台 (Two-sided platforms，如 iOS、Android、Uber) 必須同時吸引供給方（開發者/司機）與需求方（使用者）。跨邊網路效應 (Cross-side network effects) 意味著：更多開發者會吸引更多使用者，進而吸引更多開發者。平台包圍策略 (Platform Envelopment) 則是平台巨頭利用既有龐大用戶群，吞併相鄰市場的常見手法。",
+m4_cards:[
+  {title:"直接 vs. 跨邊網路效應",desc:"直接網路效應：使用者越多，對其他使用者的價值越高（如 LINE、電話）。跨邊網路效應：A 邊群體（買家）增加，會提升 B 邊群體（賣家/開發者）的價值，反之亦然（如蝦皮、App Store）。"},
+  {title:"安裝基礎 (Installed Base)",desc:"已經採用該技術的用戶總數。在標準戰役中，擁有最大安裝基礎的技術，通常能吸引最多的互補品開發商，形成良性循環。"},
+  {title:"VHS 擊敗 Betamax",desc:"Sony 的 Betamax 畫質較佳，但 JVC 的 VHS 開放授權並延長錄影時間，吸引了龐大的片商（互補品）與播放器製造商，最終憑藉網路效應贏得標準戰役。"},
+  {title:"平台包圍 (Envelopment)",desc:"平台提供者將相鄰市場的功能整合進自己的平台中。例如 Apple 將手電筒、指南針、甚至健康追蹤功能內建於 iOS，直接摧毀了相關的獨立 App 市場。"}
+],
+m4_terms:[
+  {front:"Network Externalities\n網路外部性",back:"一項產品或服務對使用者的價值，會隨著使用該產品的總人數增加而提升的現象。"},
+  {front:"Tipping Point\n傾斜點",back:"在具備網路效應的市場中，當某技術的市佔越過此臨界點，正回饋循環將推動其成為市場絕對主導者的轉折點。"},
+  {front:"Winner-Take-All\n贏家通吃市場",back:"由於強大的網路效應與高轉換成本，市場最終只會由單一或極少數標準/平台存活下來的競爭格局。"}
+],
+m4_q:[
+  {q:"「網路外部性」(Network Externalities) 的定義是什麼？",opts:["產品必須透過網際網路銷售","產品對使用者的價值，隨使用人數的增加而上升","產品的硬體成本隨產量下降","企業的網路安全防護能力"],ans:1,exp:"網路效應的核心在於價值與「用戶基數」成正比，例如社群軟體或作業系統。"},
+  {q:"在雙邊平台 (如 App Store) 中，開發者變多會吸引更多使用者，使用者變多又吸引更多開發者。這稱為什麼？",opts:["直接網路效應","規模經濟","跨邊網路效應 (Cross-side network effects)","長尾效應"],ans:2,exp:"跨邊網路效應指平台一端（如開發者）的參與，會增加對另一端（如使用者）的價值。"},
+  {q:"VHS 錄影帶規格擊敗技術上略優的 Betamax，主要原因是？",opts:["VHS 的製造成本高出許多","VHS 成功建立了較大的安裝基礎與互補品生態系 (電影授權)","Sony 自動退出市場","政府規定使用 VHS"],ans:1,exp:"VHS 透過開放授權快速擴大了安裝基礎，並確保了豐富的錄影帶內容（互補品），這是標準戰役獲勝的關鍵。"},
+  {q:"在具備強烈網路效應的市場中，初期的定價策略通常為何？",opts:["極高定價以回收研發成本","滲透定價甚至虧本補貼，以求快速跨越「傾斜點」(Tipping point)","按成本加成定價","根據競爭對手每日調價"],ans:1,exp:"在網路效應市場中，初期市佔率決定了生死。企業常以免費或補貼策略快速擴大安裝基礎。"},
+  {q:"所謂的「平台包圍」(Platform Envelopment) 策略是指？",opts:["平台將相鄰或獨立市場的服務整合進自身系統，吸收其價值","平台阻止任何人加入","企業被競爭對手併購","建立實體的辦公平台"],ans:0,exp:"例如微軟將瀏覽器 (IE) 綁定進 Windows，或 Apple 將各種小工具功能內建，即為平台包圍。"},
+  {q:"在標準戰役中，「贏家通吃」(Winner-take-all) 局面最常發生在什麼情況下？",opts:["產品沒有任何互補品時","當市場存在強大的網路外部性與高轉換成本時","所有企業技術完全相同時","政府進行價格管制時"],ans:1,exp:"強大的網路效應會產生正回饋循環，強者越強，最終導致單一標準壟斷市場。"},
+  {q:"技術的總價值通常由哪兩部分組成？",opts:["獨立效用價值 + 網路外部性價值","製造成本 + 行銷成本","軟體價值 + 硬體價值","專利價值 + 品牌價值"],ans:0,exp:"總價值 = 技術本身的獨立效用 (Standalone utility) + 來自龐大用戶群與互補品的網路外部性價值 (Network externalities value)。"},
+  {q:"企業為何在標準戰役中經常選擇「開放授權」(Open Licensing) 策略？",opts:["因為他們不想賺錢","為了放棄智財權","為了快速擴大安裝基礎 (Installed Base) 並推動技術成為業界標準","為了讓員工高興"],ans:2,exp:"開放授權雖犧牲部分獨佔利潤，但能吸引眾多製造商加入，加速技術成為主導標準。"}
+],
+
+m5_nav:"5. 創新組織",m5_title:"創新組織與內部創業",
+m5_p1:"創新與日常營運之間存在根本的張力：營運追求效率、標準化與減少變異；創新則需要探索、實驗與容忍失敗。如何在同一組織內兼顧這兩者，被稱為「組織雙元性」(Organizational Ambidexterity)。",
+m5_p2:"為克服大型組織的官僚慣性，企業發展出多種創新組織設計。臭鼬工廠 (Skunk Works) 是一種將創新團隊與主組織實體隔離的模式，賦予極高自主權與專屬資源，以突破常規開發突破性產品（如 Lockheed Martin 的戰機研發）。",
+m5_p3:"跨功能團隊 (Cross-functional Teams) 則是打破部門穀倉 (Silos)，將 R&D、行銷、製造等部門人員整合，能大幅縮短新產品開發時間並確保產品符合市場需求。此外，內部創業 (Corporate Venturing) 透過設立內部創投基金或孵化器，鼓勵員工提出顛覆性點子並給予資源支持。",
+m5_p4:"「開放式創新」(Open Innovation) 由 Henry Chesbrough 提出，主張企業不應將研發侷限於內部。企業應主動引進外部的知識、技術與點子，同時也將內部未使用的技術對外授權。從「閉門造車」轉向「生態系共創」。",
+m5_cards:[
+  {title:"結構性雙元性",desc:"將核心事業（負責利用/效率）與創新事業（負責探索/新領域）在組織結構上分離，兩者擁有不同的 KPI 與文化，但由高層進行戰略整合。"},
+  {title:"臭鼬工廠 (Skunk Works)",desc:"起源於洛克希德馬丁。將一小群菁英隔離於日常官僚體制外，去除繁文縟節，專注於高度機密與突破性的技術開發。"},
+  {title:"開放式創新",desc:"P&G (寶僑) 透過 Connect + Develop 平台，將內部研發與外部發明家連結，成功將外部創新比例從 15% 提升至 50% 以上。"},
+  {title:"內部創業 (Intrapreneurship)",desc:"在大型企業內部建立類似新創公司的機制。如 Google 的「20% 時間」政策，孕育了 Gmail 與 Google News 等創新產品。"}
+],
+m5_terms:[
+  {front:"Organizational Ambidexterity\n組織雙元性",back:"組織同時執行「探索」(Exploration，創新與新技術) 與「利用」(Exploitation，效率與既有業務) 的能力。"},
+  {front:"Open Innovation\n開放式創新",back:"企業跨越組織邊界，主動整合內部與外部的想法、技術與路徑來推動創新的模式。"},
+  {front:"Cross-functional Teams\n跨功能團隊",back:"由不同專業領域（如研發、工程、行銷）成員組成的團隊，旨在加速新產品開發並減少部門間的溝通摩擦。"}
+],
+m5_q:[
+  {q:"「組織雙元性」(Organizational Ambidexterity) 是指企業具備什麼能力？",opts:["能同時在國內與國外市場賺錢","能同時進行「探索」(創新) 與「利用」(效率)","能同時製造軟體與硬體","管理階層擁有雙重國籍"],ans:1,exp:"雙元性指組織能平衡開發新機會（探索）與優化現有業務（利用）這兩種截然不同的活動。"},
+  {q:"「臭鼬工廠」(Skunk Works) 的核心設計理念是什麼？",opts:["增加組織的官僚層級","將創新團隊與母組織隔離，賦予高度自主權以突破常規","把辦公室建在有異味的地方","完全裁撤研發部門"],ans:1,exp:"臭鼬工廠透過隔離與賦權，保護創新團隊免受大企業繁文縟節與既有利益結構的干擾。"},
+  {q:"Henry Chesbrough 提出的「開放式創新」(Open Innovation) 主張：",opts:["所有專利都應該免費公開","企業應打破邊界，主動利用外部知識並向外授權內部技術","研發只能在內部進行，防止機密外洩","不需要研發部門"],ans:1,exp:"開放式創新認為，在這個知識分散的時代，最聰明的人不一定都在你的公司裡，必須擁抱外部生態系。"},
+  {q:"企業設立「跨功能團隊」(Cross-functional Teams) 的主要效益是？",opts:["減少員工總數","打破部門穀倉 (Silos)，加速新產品開發週期並確保產品可行性","統一員工的服裝規定","增加會議的次數"],ans:1,exp:"結合研發、製造、行銷人員，可以在設計初期就考量到量產與市場需求，避免反覆修改。"},
+  {q:"Google 著名的「20% 時間」政策是哪種概念的實踐？",opts:["開放式創新","內部創業 (Intrapreneurship) / 鼓勵自下而上的探索","結構性雙元性","維持性創新"],ans:1,exp:"允許員工將部分工時用於自己有熱情的創新專案，是激發內部創業精神的經典機制。"},
+  {q:"在大型企業中，為何突破性創新 (Radical Innovation) 經常面臨內部阻力？",opts:["因為員工太笨","因為它可能威脅或蠶食 (Cannibalize) 既有的核心產品與利潤結構","因為突破性創新通常成本極低","因為政府禁止大企業創新"],ans:1,exp:"突破性創新常與公司目前的金雞母相衝突，導致擁有資源的部門主管不願支持。"},
+  {q:"P&G 的 Connect + Develop 戰略是哪個概念的成功案例？",opts:["封閉式創新","開放式創新 (Open Innovation)","成本削減策略","垂直整合"],ans:1,exp:"P&G 透過此平台廣泛尋求外部發明家的點子，將內部研發與外部創新完美結合。"},
+  {q:"「結構性雙元性」(Structural Ambidexterity) 的解決方案是？",opts:["讓每個人每天早上做營運，下午做創新","建立完全獨立的探索部門與利用部門，兩者擁有不同的文化，由高層整合","完全放棄既有業務，只做創新","把創新工作外包給競爭對手"],ans:1,exp:"透過組織結構上的實體分離，保護創新單位不被營運單位的效率邏輯所扼殺。"}
+],
+
+m6_nav:"6. 外部資源",m6_title:"延伸學習資源",m6_desc:"精選科技創新管理領域的經典文獻、個案研究與影音資源，供進一步探索。",
+mlab_nav:"7. 互動實驗室",mlab_title:"互動實驗室",mlab_desc:"透過視覺化模擬器，親自操作並體驗技術演化、獨佔性與網路外部性等動態模型。",
+date:"Version 2026.04.12",copyright:"For Educational Use Only",
+architect_label:"Architect:",architect_name:"Prof. Shihmin Lo",
+architect_url:"https://www.ibs.ncnu.edu.tw/index.php/faculty/tenured-professor/299-smlo"
+},
+en: {
+brand:"TIME",title:"Tech Innovation Management & Entrepreneurship",subtitle:"Tech Evolution, Standards & Organization",
+nav_modules:"Module Menu",nav_prev:"Previous",nav_next:"Next",
+key_terms:"Key Terms",flip_prompt:"Click to flip",audio_read:"Audio Guide",
+quiz_title:"Module Quiz (Random 4 Questions)",
+submit:"Submit",retry:"Retry",score:"Score",correct:"Correct",incorrect:"Incorrect",explanation:"Explanation",
+analytics_title:"Learning Analytics",analytics_desc:"Track your learning time, interactions, and quiz performance. Export CSV for your records.",
+analytics_form_title:"Personal Info",analytics_group:"Group",analytics_dept:"Department",
+analytics_dept_ph:"e.g., IBS3",analytics_id:"Student ID",analytics_id_ph:"e.g., 112212099",
+analytics_name:"Name",analytics_name_ph:"e.g., Jimmy Lo",
+analytics_export_csv:"Export CSV Record",analytics_fill_required:"Please fill in all fields to unlock export",
+group_options:["G1","G2","G3","G4","G5","G6","G7","G8","G9","G10","G11","G12","Others"],
+analytics_total_time:"Total Learning Time",analytics_total_clicks:"Total Interactions",analytics_overall_acc:"Overall Quiz Accuracy",
+analytics_module:"Module",analytics_time:"Time Spent",analytics_clicks:"Clicks",analytics_acc:"Accuracy",
+analytics_correct_ans_total:"Latest Correct / Latest Answered / Total Pool",analytics_no_data:"Not yet taken",analytics_sec:"sec",analytics_times:"times",
+
+m0_nav:"0. Overview",
+m0_title:"Tech Innovation Management & Entrepreneurship (TIME)",
+m0_intro:"This module focuses on technology and innovation strategy. From the difference between invention and innovation, S-curve evolution, to platform network externalities and organizing for corporate entrepreneurship. It helps you grasp how firms capture and sustain innovation rents in dynamic tech-driven environments.",
+m0_why:"Why is Innovation Management Critical?",
+m0_why_desc:"Innovation is the fundamental engine of economic and corporate growth. However, brilliant inventions don't automatically translate to commercial success (e.g., EMI's CT Scanner). The core of strategy lies in building appropriability mechanisms and complementary assets to ensure innovators 'capture' the value they create.",
+m0_modules:[
+  {num:"01",title:"Innovation & Competitive Advantage",desc:"Invention vs Innovation, Regime of Appropriability, Complementary Assets & Lead Time"},
+  {num:"02",title:"Tech Evolution & Disruptive Innovation",desc:"S-Curve Model, Christensen's Disruptive Innovation, Architectural Innovation"},
+  {num:"03",title:"Entry Timing & Innovation Strategy",desc:"First-Mover Advantages/Disadvantages, Fast Follower, Real Options"},
+  {num:"04",title:"Standards Battles & Platforms",desc:"Network Externalities, Lock-in, Winner-Take-All & Platform Envelopment"},
+  {num:"05",title:"Organizing for Innovation",desc:"Structural Ambidexterity, Skunk Works, Cross-functional Teams & Open Innovation"}
+],
+m0_stats:[
+  {val:"Teece",label:"Appropriability Model"},
+  {val:"S-Curve",label:"Tech Life Cycle"},
+  {val:"Network",label:"External Effects"},
+  {val:"5",label:"Learning Modules"}
+],
+m0_start:"Start Learning →",
+
+m1_nav:"1. Innovation & Advantage",m1_title:"Capturing Competitive Advantage from Innovation",
+m1_p1:"Invention is the creation of new products or processes; Innovation is the commercialization of an invention. Inventors often fail to profit from their inventions because value distribution depends on the 'Regime of Appropriability'.",
+m1_p2:"\"Whether an innovator wins depends on how easily the innovation can be imitated and who owns the complementary assets required to commercialize it.\" — David Teece",
+m1_p3:"Teece identifies four factors determining innovation profitability: Intellectual Property (IP) protection, the nature of knowledge (tacit is harder to imitate), Lead Time (translating early leads into market position), and Complementary Assets (manufacturing, marketing, distribution, etc.).",
+m1_p4:"When IP protection is weak and complementary assets are held by incumbents (tight appropriability), inventors are often forced to license or sell. If innovators can control complementary assets and build a lead time, they emerge as ultimate winners.",
+m1_cards:[
+  {title:"EMI & the CT Scanner",desc:"EMI invented the CT scanner but lacked global medical equipment marketing and service networks (complementary assets). They were ultimately driven out by giants like GE and Siemens."},
+  {title:"Limits of Patents",desc:"Except in pharmaceuticals and chemicals, patents often fail to prevent imitation (rivals can invent around). Lead time and complementary assets are usually more reliable protections."},
+  {title:"Power of Complementary Assets",desc:"Apple's iPod wasn't the first MP3 player, but it dominated digital music through its complementary assets: the iTunes store, design aesthetics, and retail channels."},
+  {title:"Tacit Knowledge",desc:"Knowledge that cannot be easily codified into manuals or blueprints. Innovations highly dependent on tacit knowledge naturally possess high barriers to imitation."}
+],
+m1_terms:[
+  {front:"Regime of Appropriability",back:"The environmental conditions that determine how much value an innovator can capture from their innovation. Includes IP strength and knowledge tacitness."},
+  {front:"Complementary Assets",back:"Additional resources and capabilities required to successfully commercialize an innovation, such as manufacturing, distribution channels, and brand reputation."},
+  {front:"Lead Time",back:"The time advantage an innovator has before competitors can successfully imitate, used to climb the learning curve and build brand loyalty."}
+],
+m1_q:[
+  {q:"What is the main difference between Invention and Innovation?",opts:["Invention is tech, Innovation is mgmt","Invention is creating a concept; Innovation is commercializing it","They are exactly the same","Innovation requires a patent"],ans:1,exp:"Invention is generating new knowledge; Innovation is transforming that knowledge into commercial value."},
+  {q:"EMI's failure with the CT scanner best illustrates the importance of?",opts:["Patent protection","First-mover advantage","Complementary Assets","Tacit knowledge"],ans:2,exp:"EMI had the technology and patents but lacked the global marketing/service networks (complementary assets), losing to GE."},
+  {q:"According to Teece, in a regime with weak IP and critical complementary assets, who profits most?",opts:["The original inventor","Followers possessing complementary assets","Venture capitalists","The government"],ans:1,exp:"In such regimes, large incumbents (often followers) who control manufacturing and distribution capture the lion's share of profits."},
+  {q:"Which is NOT one of the four elements determining innovation profitability?",opts:["Intellectual property","Lead time","Government subsidies","Complementary assets"],ans:2,exp:"Teece's model includes: IP protection, nature of knowledge (tacitness), lead time, and complementary assets."},
+  {q:"Why do patents fail to protect innovations in many industries?",opts:["Too expensive","Competitors can easily 'invent around' the patent","Patent office is too slow","Governments don't protect them"],ans:1,exp:"Empirical research shows rivals can often legally bypass patents by slightly altering designs (inventing around)."},
+  {q:"Apple iPod's success was primarily based on?",opts:["Inventing the first MP3","Lowest manufacturing cost","Combining great design with powerful complementary assets (iTunes)","Aggressive patent lawsuits"],ans:2,exp:"Apple wasn't first, but won by leveraging superior design and a seamless ecosystem (complementary assets)."},
+  {q:"What is 'Tacit Knowledge'?",opts:["Knowledge written in patents","Knowledge that is hard to codify and must be transferred through practice","Knowledge stored in code","Common sense"],ans:1,exp:"Tacit knowledge resists codification, making it extremely difficult for competitors to easily copy or imitate."},
+  {q:"Why is Lead Time important?",opts:["To file more patents","Gives firms time to climb the learning curve and lock in customers","Instantly destroys rivals","Saves R&D costs"],ans:1,exp:"Lead time doesn't prevent imitation permanently, but gives innovators a crucial window to build brand and lower costs."}
+],
+
+m2_nav:"2. Tech Evolution",m2_title:"Tech Evolution & Disruptive Innovation",
+m2_p1:"Technology performance usually evolves along an S-Curve: initial slow progress, followed by exponential growth, and finally plateauing as physical limits are reached. A new technological trajectory eventually replaces the old via a new S-curve. However, firms often overinvest in mature tech, missing the transition window.",
+m2_p2:"Clayton Christensen's 'Disruptive Innovation' explains why great firms fail: they focus too much on their best customers, delivering 'Sustaining Innovations' that eventually overshoot mainstream market needs.",
+m2_p3:"Disruptive innovations usually enter from the low-end or new-markets. Initially inferior in mainstream performance, they offer new attributes like being cheaper, simpler, or more convenient. As their performance improves and crosses the 'good enough' threshold, they rapidly overthrow incumbents.",
+m2_p4:"Henderson & Clark divide innovation into 'Component Innovation' (improving single parts) and 'Architectural Innovation' (reconfiguring how components link together). Incumbents often fail at architectural innovation because their org structures and communication channels are deeply tied to the old architecture.",
+m2_cards:[
+  {title:"Sustaining vs. Disruptive",desc:"Sustaining: Improves performance for existing customers (e.g., faster Intel CPU). Disruptive: Cheaper/simpler alternatives targeting overlooked segments (e.g., early PCs vs mainframes)."},
+  {title:"Low-end Foothold",desc:"Disruptors avoid head-on battles, targeting marginal customers ignored by incumbents (due to low margins), then relentlessly move upmarket."},
+  {title:"The Kodak Trap",desc:"Kodak actually invented the digital camera but was disrupted because its profits relied heavily on film (complementary asset lock-in) and early digital cameras had poor resolution (classic disruptive trait)."},
+  {title:"Architectural Innovation Barrier",desc:"When architecture changes (e.g., floor fan to ceiling fan), incumbent communication channels break down, preventing them from developing new architectural products efficiently."}
+],
+m2_terms:[
+  {front:"Disruptive Innovation",back:"Innovations initially inferior in mainstream performance but cheaper/simpler, entering from low-end/new markets, eventually displacing mainstream products."},
+  {front:"S-Curve",back:"The trajectory of tech performance over time/effort, characterized by slow start, rapid acceleration, and eventual maturity/saturation."},
+  {front:"Architectural Innovation",back:"Innovation that changes how components link and interact without necessarily changing the core design of the components themselves."}
+],
+m2_q:[
+  {q:"In the S-Curve model, why does tech progress plateau at the end?",opts:["Decreased R&D funding","Falling market demand","Technology approaches its natural/physical limits","Too many competitors"],ans:2,exp:"As tech matures, it hits physical/chemical limits, meaning massive R&D yields only marginal improvements."},
+  {q:"According to Christensen, why do great incumbent firms get disrupted?",opts:["They lag in tech","They refuse to spend on R&D","They focus too heavily on satisfying their most profitable, demanding customers","They lack capital"],ans:2,exp:"Known as the Innovator's Dilemma: rational resource allocation (listening to best customers) causes them to ignore low-end threats."},
+  {q:"What is a typical characteristic of early disruptive innovations?",opts:["Better performance than mainstream products","Expensive, targeting high-end","Inferior performance, but cheaper, simpler, or more convenient","Requires extreme tech barriers"],ans:2,exp:"Disruptive tech initially underperforms on mainstream metrics but offers new value like portability or low cost."},
+  {q:"Henderson & Clark's 'Architectural Innovation' refers to?",opts:["Replacing all core components","Reconfiguring how existing components link and interact","Changing product color","Lowering manufacturing costs"],ans:1,exp:"Architectural innovation keeps core component concepts but changes the overall system architecture of how they integrate."},
+  {q:"Kodak's failure with digital cameras is best explained by?",opts:["Sustaining innovation trap","Disruptive innovation & complementary asset lock-in (film profits)","Lack of R&D capability","Expired patents"],ans:1,exp:"Kodak invented digital cameras but organizational resistance (protecting high-margin film business) hindered its adaptation."},
+  {q:"When does disruptive tech rapidly capture the mainstream market?",opts:["Upon launch","When its performance crosses the 'good enough' threshold for mainstream customers","When subsidized by government","When it becomes more expensive"],ans:1,exp:"Once disruptive tech improves enough to meet mainstream minimum acceptable standards, its cost/convenience advantage triggers mass substitution."},
+  {q:"Which is a classic 'Sustaining Innovation'?",opts:["First personal computer","First digital camera","Intel launching a faster next-gen microprocessor","Airbnb disrupting hotels"],ans:2,exp:"Intel making a faster CPU to satisfy existing high-end customer demands is a sustaining innovation."},
+  {q:"Why do incumbents usually win 'Sustaining Innovation' battles?",opts:["Government protection","It aligns with their existing business model, customer needs, and resources","Competitors are too weak","Their products are cheaper"],ans:1,exp:"Incumbents have the resources and motivation to win sustaining battles because it serves their current profit model perfectly."}
+],
+
+m3_nav:"3. Innovation Strategy",m3_title:"Entry Timing & Innovation Strategy",
+m3_p1:"A core strategic choice in innovation is the 'Timing of Entry'. Entrants are typically categorized as First-movers, Early followers (Fast followers), and Late entrants.",
+m3_p2:"First-Mover Advantages include: brand loyalty, preempting scarce resources (retail channels, key suppliers), exploiting switching costs to lock in customers, and leading the experience curve. However, first-movers face immense risks: high R&D costs, demand uncertainty, immature tech, and investing in a standard before a Dominant Design emerges.",
+m3_p3:"The Fast Follower strategy is often more attractive. Followers avoid massive early trial-and-error costs by observing first-movers' mistakes, entering with optimized tech and clearer customer preferences (e.g., Apple's iPhone or Google's Android).",
+m3_p4:"Managing innovation risk requires strategic flexibility. The Real Options perspective suggests firms make multiple small, exploratory investments, retaining the right to scale up later, rather than betting everything on one tech early on. Strategic alliances, JVs, and licensing also help share R&D costs and risks.",
+m3_cards:[
+  {title:"The First-Mover Myth",desc:"Empirical studies show true 'first-movers' have huge failure rates. Markets are often ultimately dominated by 'early followers' who possess deep marketing/manufacturing resources (complementary assets)."},
+  {title:"Real Options",desc:"Applying financial option concepts to R&D. Investing in a prototype is buying a 'call option'; if the market clears, exercise it (scale up); if not, abandon it with limited loss."},
+  {title:"Apple as a Fast Follower",desc:"Apple is rarely the first to invent a tech category (MP3, smartphone, smartwatch). Its strategy is to wait for the market to sprout, then redefine it with superior design and UX."},
+  {title:"Switching Cost Lock-in",desc:"If a first-mover establishes high switching costs (e.g., software learning curves, data transfer hurdles), customers won't switch easily even if latecomers offer better tech."}
+],
+m3_terms:[
+  {front:"First-Mover Advantage",back:"Competitive advantages gained by being the first to enter a market, including brand equity, resource preemption, and switching cost lock-in."},
+  {front:"Fast Follower Strategy",back:"Avoiding being the market's guinea pig; waiting for first-movers to validate demand, then rapidly entering with refined, mature products."},
+  {front:"Real Options",back:"A strategic mindset of making phased, small-scale investments under high uncertainty to retain future flexibility and limit downside risk."}
+],
+m3_q:[
+  {q:"Which is NOT a typical First-Mover Advantage?",opts:["Building brand loyalty","Preempting scarce resources","Saving on early market education and trial-and-error costs","Leading the experience curve"],ans:2,exp:"Saving on trial-and-error and market education is a 'follower' advantage. First-movers usually bear these heavy costs."},
+  {q:"What is the primary purpose of applying 'Real Options' in innovation strategy?",opts:["To inflate stock prices","To reduce risk and retain flexibility via phased, small-scale investments under high uncertainty","To instantly defeat all rivals","To outsource all R&D"],ans:1,exp:"Real options encourage breaking large investments into phased decisions, proceeding based on market signals."},
+  {q:"Apple's strategy in the smartphone market is best described as:",opts:["Absolute first-mover","Early follower / Fast follower","Late low-cost entrant","Niche defender"],ans:1,exp:"Apple wasn't the first to make a smartphone; it waited for tech to mature and fast-followed with superior UI and ecosystem."},
+  {q:"What is a major disadvantage faced by First-Movers?",opts:["Inability to file patents","Extreme tech uncertainty and high market education costs","Inability to build brands","No supplier support"],ans:1,exp:"The biggest risk is investing heavily in the wrong tech standards (before dominant design) and paying to educate the market for followers."},
+  {q:"If an industry features extreme 'Switching Costs', who benefits most?",opts:["First-movers","Late entrants","Venture capitalists","Governments"],ans:0,exp:"High switching costs prevent early-acquired customers from churning, heavily amplifying first-mover market share advantages."},
+  {q:"A major motive for using Joint Ventures (JVs) in R&D is?",opts:["To monopolize the market","To share high R&D costs/risks and access complementary resources","To evade taxes","To lower employee wages"],ans:1,exp:"JVs and alliances allow firms to combine strengths (e.g., tech + distribution) while sharing the heavy burden of innovation risks."},
+  {q:"What is the general empirical conclusion regarding 'First-Mover Advantage'?",opts:["First-movers always win","First-mover failure rates are extremely high; successes are often mythologized (survivorship bias)","Late entrants never succeed","First-movers don't need complementary assets"],ans:1,exp:"Research (like Tellis & Golder) shows we often overestimate first-mover advantage because failed pioneers are forgotten by history."},
+  {q:"Before a Dominant Design emerges, the most appropriate strategy is?",opts:["Bet all resources on a single technology","Maintain flexibility, participate in standards setting, and delay massive dedicated asset investments","Exit the market immediately","Heavy price promotions"],ans:1,exp:"During standard chaos, retaining flexibility via multiple tech options (real options) minimizes catastrophic risk."}
+],
+
+m4_nav:"4. Standards & Platforms",m4_title:"Standards Battles & Platform Ecosystems",
+m4_p1:"In many tech and digital markets, a product's value depends not just on its standalone utility, but on 'how many other people are using it' — known as Network Externalities (Network Effects).",
+m4_p2:"\"In network markets, winner takes all. Building a massive Installed Base is often more critical than having the absolute best technology.\" — Platform Economics Principle",
+m4_p3:"Network effects drive the establishment of Dominant Designs. Markets often exhibit a 'Tipping Point': once a tech's market share crosses this threshold, positive feedback loops rapidly propel it to a monopoly, creating a Winner-take-all dynamic. This is why firms in standards battles (VHS vs Betamax, Blu-ray vs HD-DVD) often sell initial products at a loss to rapidly expand market share.",
+m4_p4:"Modern tech competition has evolved into 'Platform Ecosystems'. Two-sided platforms (iOS, Android, Uber) must attract both the supply side (developers/drivers) and demand side (users). Cross-side network effects mean more developers attract more users, which in turn attracts more developers. Platform Envelopment is a common tactic where a platform giant leverages its massive user base to swallow adjacent markets.",
+m4_cards:[
+  {title:"Direct vs Cross-Side Network Effects",desc:"Direct: Value increases with more of the same users (e.g., Telephone, LINE). Cross-side: Increase in group A (buyers) raises value for group B (sellers/developers) and vice versa (e.g., App Store)."},
+  {title:"Installed Base",desc:"The total number of users who have already adopted a technology. In standards battles, the tech with the largest installed base attracts the most complementary goods, creating a virtuous cycle."},
+  {title:"VHS beating Betamax",desc:"Sony's Betamax had slightly better quality, but JVC's VHS used open licensing and longer recording times to attract huge numbers of movie studios (complements) and makers, winning via network effects."},
+  {title:"Platform Envelopment",desc:"A platform provider integrates functions of adjacent markets into its own platform. E.g., Apple building flashlight, compass, and health tracking into iOS, destroying standalone app markets for those functions."}
+],
+m4_terms:[
+  {front:"Network Externalities",back:"A phenomenon where the value of a product or service to a user increases as the total number of users of that product grows."},
+  {front:"Tipping Point",back:"The critical threshold in a network market where a technology's market share triggers a positive feedback loop, propelling it to absolute dominance."},
+  {front:"Winner-Take-All",back:"A competitive landscape where strong network effects and high switching costs result in only one or very few standards/platforms surviving."}
+],
+m4_q:[
+  {q:"What defines 'Network Externalities'?",opts:["Products must be sold over the internet","The product's value to a user increases as the total number of users increases","Hardware costs drop with volume","A firm's cybersecurity capability"],ans:1,exp:"The core of network effects is that value scales with the 'user base' (e.g., social media, operating systems)."},
+  {q:"In two-sided platforms (like App Store), more developers attract users, which attracts more developers. This is called:",opts:["Direct network effects","Economies of scale","Cross-side network effects","Long-tail effects"],ans:2,exp:"Cross-side network effects occur when participation on one side of the platform increases value for the other side."},
+  {q:"Why did VHS defeat the technically superior Betamax?",opts:["VHS was much more expensive to make","VHS built a larger installed base and complementary goods ecosystem (movies)","Sony voluntarily withdrew","Government mandated VHS"],ans:1,exp:"VHS used open licensing to rapidly grow its installed base and secure rich movie content (complements), winning the standards battle."},
+  {q:"In markets with strong network effects, what is the typical initial pricing strategy?",opts:["Extremely high pricing to recover R&D","Penetration pricing or subsidizing losses to rapidly cross the 'Tipping Point'","Cost-plus pricing","Matching competitor daily prices"],ans:1,exp:"In network markets, early market share dictates survival. Firms often use free or subsidized pricing to rapidly expand their installed base."},
+  {q:"What is 'Platform Envelopment'?",opts:["A platform integrating services from adjacent markets to absorb their value","A platform blocking anyone from joining","A firm being acquired by a rival","Building a physical office platform"],ans:0,exp:"For example, Microsoft bundling IE into Windows, or Apple building widget functions natively into iOS, destroying standalone competitors."},
+  {q:"When does a 'Winner-take-all' dynamic most commonly occur?",opts:["When the product has no complements","When the market features strong network externalities and high switching costs","When all firm tech is identical","Under government price controls"],ans:1,exp:"Strong network effects create positive feedback loops (rich get richer), ultimately leading a single standard to monopolize the market."},
+  {q:"A technology's total value usually comprises which two parts?",opts:["Standalone utility value + Network externalities value","Manufacturing cost + Marketing cost","Software value + Hardware value","Patent value + Brand value"],ans:0,exp:"Total Value = Standalone utility of the tech itself + Network externalities value derived from the user base and complementary goods."},
+  {q:"Why do firms often choose 'Open Licensing' in standards battles?",opts:["They hate making money","To abandon IP rights","To rapidly expand the Installed Base and push the tech to become the industry standard","To make employees happy"],ans:2,exp:"Open licensing sacrifices some monopoly profit but attracts numerous manufacturers, accelerating the tech's path to becoming the dominant standard."}
+],
+
+m5_nav:"5. Org & Entrepreneurship",m5_title:"Organizing for Innovation & Corporate Venturing",
+m5_p1:"A fundamental tension exists between innovation and daily operations: operations seek efficiency, standardization, and variance reduction; innovation requires exploration, experimentation, and tolerance for failure. Balancing both within the same firm is called 'Organizational Ambidexterity'.",
+m5_p2:"To overcome large corporate bureaucratic inertia, firms developed various innovative org designs. 'Skunk Works' isolate innovation teams physically from the main organization, granting high autonomy and dedicated resources to bypass red tape and develop breakthrough products (e.g., Lockheed Martin's fighter jets).",
+m5_p3:"Cross-functional Teams break down departmental silos, integrating R&D, marketing, and manufacturing personnel to drastically shorten product development cycles and ensure market fit. Furthermore, Corporate Venturing (internal incubators/VC funds) encourages employees to pitch disruptive ideas with dedicated backing.",
+m5_p4:"'Open Innovation', coined by Henry Chesbrough, argues firms shouldn't restrict R&D internally. Firms should actively pull in external knowledge, tech, and ideas, while licensing out unused internal tech. A shift from 'closed-door R&D' to 'ecosystem co-creation'.",
+m5_cards:[
+  {title:"Structural Ambidexterity",desc:"Structurally separating the core business (exploitation/efficiency) from the innovation business (exploration/new areas) with different KPIs and cultures, integrated only at the top management level."},
+  {title:"Skunk Works",desc:"Originating from Lockheed Martin. Isolating a small elite team from daily bureaucracy, removing red tape, and focusing purely on highly classified, breakthrough tech development."},
+  {title:"Open Innovation",desc:"P&G's 'Connect + Develop' platform connected internal R&D with external inventors, successfully raising the ratio of externally-sourced innovations from 15% to over 50%."},
+  {title:"Intrapreneurship",desc:"Creating startup-like mechanisms within a large corporation. E.g., Google's '20% time' policy, which birthed innovative products like Gmail and Google News."}
+],
+m5_terms:[
+  {front:"Organizational Ambidexterity",back:"The ability of an organization to simultaneously execute 'Exploration' (innovation/new tech) and 'Exploitation' (efficiency/existing business)."},
+  {front:"Open Innovation",back:"A paradigm where firms span organizational boundaries to actively integrate internal and external ideas, tech, and paths to drive innovation."},
+  {front:"Cross-functional Teams",back:"Teams comprising members from diverse functional areas (R&D, engineering, marketing) designed to accelerate product development and reduce inter-department friction."}
+],
+m5_q:[
+  {q:"What capability does 'Organizational Ambidexterity' refer to?",opts:["Making money domestically and internationally simultaneously","Simultaneously conducting 'Exploration' (innovation) and 'Exploitation' (efficiency)","Manufacturing hardware and software simultaneously","Management holding dual citizenship"],ans:1,exp:"Ambidexterity is balancing the exploration of new opportunities with the exploitation (optimization) of existing businesses."},
+  {q:"What is the core design philosophy of 'Skunk Works'?",opts:["Adding bureaucratic layers","Isolating innovation teams from the parent org with high autonomy to break routine norms","Building offices in smelly locations","Eliminating the R&D department"],ans:1,exp:"Skunk works protect innovation teams from large corporate red tape and existing vested interests via isolation and empowerment."},
+  {q:"Henry Chesbrough's 'Open Innovation' argues that:",opts:["All patents should be free","Firms should break boundaries, actively utilizing external knowledge and licensing out internal tech","R&D must only be internal to prevent leaks","R&D departments are unnecessary"],ans:1,exp:"Open innovation recognizes that in a distributed knowledge era, the smartest people don't all work for you; you must embrace the external ecosystem."},
+  {q:"What is the primary benefit of 'Cross-functional Teams'?",opts:["Reducing total headcount","Breaking departmental silos to accelerate product development and ensure viability","Standardizing dress codes","Increasing meeting frequency"],ans:1,exp:"Integrating R&D, manufacturing, and marketing early ensures manufacturability and market fit, avoiding costly late-stage revisions."},
+  {q:"Google's famous '20% Time' policy is a practice of what concept?",opts:["Open Innovation","Intrapreneurship / Encouraging bottom-up exploration","Structural Ambidexterity","Sustaining Innovation"],ans:1,exp:"Allowing employees to spend part of their time on passionate innovation projects is a classic mechanism to spark corporate entrepreneurship."},
+  {q:"Why does Radical Innovation often face heavy internal resistance in large firms?",opts:["Employees lack intelligence","It threatens or cannibalizes existing core products and profit structures","Radical innovation is too cheap","Government bans large firm innovation"],ans:1,exp:"Breakthrough innovations often conflict with the company's current 'cash cows,' causing resource-controlling managers to withhold support."},
+  {q:"P&G's Connect + Develop strategy is a successful example of?",opts:["Closed Innovation","Open Innovation","Cost Reduction Strategy","Vertical Integration"],ans:1,exp:"P&G used this platform to extensively source ideas from external inventors, perfectly blending internal R&D with external innovation."},
+  {q:"What is the solution offered by 'Structural Ambidexterity'?",opts:["Everyone does operations in the morning, innovation in the afternoon","Establishing completely independent explore and exploit units with different cultures, integrated at the top","Abandoning existing business entirely for innovation","Outsourcing innovation to rivals"],ans:1,exp:"Through physical structural separation, innovation units are protected from being suffocated by the efficiency logic of operational units."}
+],
+
+m6_nav:"6. Resources",m6_title:"Extended Learning Resources",m6_desc:"Curated classic literature, case studies, and multimedia resources in Tech Innovation Management for further exploration.",
+mlab_nav:"7. Interactive Lab",mlab_title:"Interactive Laboratory",mlab_desc:"Personally manipulate and experience dynamic models of tech evolution, appropriability, and network externalities through visual simulators.",
+date:"Version 2026.04.12",copyright:"For Educational Use Only",
+architect_label:"Architect:",architect_name:"Prof. Shihmin Lo",
+architect_url:"https://www.ibs.ncnu.edu.tw/index.php/faculty/tenured-professor/299-smlo"
+}
+};
+
+const TOTAL = 9; 
+
+/* ═══════ FLIP CARD ═══════ */
 const FlipCard = ({ front, back, t }) => {
   const [flipped, setFlipped] = useState(false);
   return (
-    <div className="perspective cursor-pointer h-36" onClick={() => setFlipped(!flipped)}>
+    <div className="perspective cursor-pointer h-36 select-none" onClick={() => setFlipped(!flipped)}>
       <div className={`transform-style-3d relative w-full h-full transition-transform duration-500 ${flipped ? 'rotate-y-180' : ''}`}>
         <div className="backface-hidden absolute inset-0 bg-white dark:bg-slate-800 rounded-xl p-4 flex flex-col items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm">
-          <p className="font-serif font-bold text-center text-[#004030] dark:text-[#D8C3A5] whitespace-pre-line">{front}</p>
+          <p className="font-serif font-bold text-center text-[#004030] dark:text-[#D8C3A5] text-sm leading-snug whitespace-pre-line">{front}</p>
           <p className="text-xs text-slate-400 mt-2">{t.flip_prompt}</p>
         </div>
         <div className="backface-hidden rotate-y-180 absolute inset-0 bg-[#004030] dark:bg-slate-700 rounded-xl p-4 flex items-center justify-center">
@@ -75,31 +490,30 @@ const FlipCard = ({ front, back, t }) => {
   );
 };
 
-/* ── ModuleQuiz ── */
+/* ═══════ MODULE QUIZ ═══════ */
 const ModuleQuiz = ({ questions, t, moduleId, onQuizSubmit }) => {
   const [selected, setSelected] = useState({});
   const [submitted, setSubmitted] = useState(false);
-  // 由於元件在切換 module 時會完全卸載並重新掛載，這裡的 state 會重新初始化
   const [quizIndices] = useState(() =>
     [...Array(questions.length).keys()].sort(() => Math.random() - 0.5).slice(0, 4)
   );
   return (
-    <div className="mt-8 bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-      <h3 className="text-lg font-bold font-serif text-[#004030] dark:text-[#D8C3A5] mb-6">{t.quiz_title}</h3>
+    <div className="mt-8 bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-slate-700 select-none">
+      <h3 className="text-lg font-bold font-serif text-[#004030] dark:text-[#D8C3A5] mb-6 flex items-center"><IconBookOpen size={20} className="mr-2"/>{t.quiz_title}</h3>
       {quizIndices.map((qIdx, i) => {
         const q = questions[qIdx];
         return (
           <div key={qIdx} className="mb-6">
-            <p className="font-bold mb-3">{i+1}. {q.q}</p>
+            <p className="font-bold mb-3 text-slate-800 dark:text-slate-200">{i+1}. {q.q}</p>
             <div className="space-y-2">
               {q.opts.map((opt, oIdx) => (
                 <button key={oIdx} onClick={() => !submitted && setSelected(s => ({...s, [i]: oIdx}))}
                   className={`w-full text-left px-4 py-3 rounded-lg border transition-all text-sm
                     ${submitted
-                      ? oIdx === q.ans ? 'bg-green-100 border-green-500 dark:bg-green-900/30 dark:border-green-500 text-green-900 dark:text-green-100'
-                        : selected[i] === oIdx ? 'bg-red-100 border-red-400 dark:bg-red-900/30 dark:border-red-400 text-red-900 dark:text-red-100' : 'border-slate-200 dark:border-slate-700'
-                      : selected[i] === oIdx ? 'border-[#004030] dark:border-[#D8C3A5] bg-[#004030]/5 dark:bg-[#D8C3A5]/5' : 'border-slate-200 dark:border-slate-700 hover:border-slate-400'
-                    }`}>
+                      ? oIdx === q.ans ? 'bg-green-100 border-green-500 dark:bg-green-900/30 dark:border-green-500 font-bold'
+                        : selected[i] === oIdx ? 'bg-red-100 border-red-400 dark:bg-red-900/30 dark:border-red-400 text-red-600' : 'border-slate-200 dark:border-slate-700'
+                      : selected[i] === oIdx ? 'border-[#004030] dark:border-[#D8C3A5] bg-[#004030]/5 dark:bg-[#D8C3A5]/5 font-bold text-[#004030] dark:text-[#D8C3A5]' : 'border-slate-200 dark:border-slate-700 hover:border-slate-400'
+                    } text-slate-700 dark:text-slate-300`}>
                   {opt}
                 </button>
               ))}
@@ -108,765 +522,474 @@ const ModuleQuiz = ({ questions, t, moduleId, onQuizSubmit }) => {
           </div>
         );
       })}
-      {!submitted
-        ? <button onClick={() => { setSubmitted(true); const c = quizIndices.filter((qIdx,i) => selected[i] === questions[qIdx].ans).length; onQuizSubmit(moduleId, c, quizIndices.length); }}
-            disabled={Object.keys(selected).length < quizIndices.length}
-            className="px-6 py-2 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] font-bold rounded-lg disabled:opacity-40 transition-all">
-            {t.submit}
+      {!submitted ? (
+        <button onClick={() => { 
+            setSubmitted(true); 
+            const c = quizIndices.filter((qIdx,i) => selected[i] === questions[qIdx].ans).length; 
+            onQuizSubmit(moduleId, c, quizIndices.length, questions.length); 
+          }}
+          disabled={Object.keys(selected).length < quizIndices.length}
+          className="px-6 py-2 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] font-bold rounded-lg disabled:opacity-40 transition-all">
+          {t.submit}
+        </button>
+      ) : (
+        <div className="flex items-center gap-4">
+          <p className="font-bold text-[#004030] dark:text-[#D8C3A5]">{t.score}: {quizIndices.filter((qIdx,i) => selected[i] === questions[qIdx].ans).length}/{quizIndices.length}</p>
+          <button onClick={() => { setSelected({}); setSubmitted(false); }}
+            className="px-6 py-2 border border-[#004030] dark:border-[#D8C3A5] text-[#004030] dark:text-[#D8C3A5] font-bold rounded-lg hover:bg-[#004030]/10 transition-colors">
+            {t.retry}
           </button>
-        : <div className="flex items-center gap-4">
-            <span className="font-bold text-[#004030] dark:text-[#D8C3A5]">{t.score}: {quizIndices.filter((qIdx,i) => selected[i] === questions[qIdx].ans).length}/{quizIndices.length}</span>
-            <button onClick={() => { setSelected({}); setSubmitted(false); }}
-              className="px-6 py-2 border border-[#004030] dark:border-[#D8C3A5] text-[#004030] dark:text-[#D8C3A5] font-bold rounded-lg">
-              {t.retry}
-            </button>
-          </div>
-      }
+        </div>
+      )}
     </div>
   );
 };
 
-/* ── LinkCard ── */
+/* ═══════ LINK CARD ═══════ */
 const LinkCard = ({label, url, desc}) => (
   <a href={url} target="_blank" rel="noopener noreferrer"
-    className="block bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 hover:border-[#004030] dark:hover:border-[#D8C3A5] hover:shadow-md transition-all group">
+    className="block bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 hover:border-[#004030] dark:hover:border-[#D8C3A5] hover:shadow-md transition-all group select-none">
     <div className="flex items-start justify-between gap-2 mb-2">
       <span className="font-bold font-serif text-sm text-[#004030] dark:text-[#D8C3A5] group-hover:underline leading-snug">{label}</span>
-      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-40"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      <svg draggable="false" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-1 opacity-40 group-hover:opacity-100 transition-opacity"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
     </div>
     <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{desc}</p>
   </a>
 );
 
-/* ── H2 ── */
+/* ═══════ LAB COMPONENTS (TIME SPECIFIC) ═══════ */
+const AppropriabilityLab = ({lang}) => {
+  const [ip, setIp] = useState(50);
+  const [tacit, setTacit] = useState(50);
+  const [lead, setLead] = useState(50);
+  const [comp, setComp] = useState(50);
+  
+  const score = Math.round((ip*0.2) + (tacit*0.2) + (lead*0.2) + (comp*0.4));
+  const result = score >= 80 ? (lang==='zh'?'贏家通吃 (創新者獨佔)':'Winner-Take-All (Innovator Dominates)') :
+                 score >= 50 ? (lang==='zh'?'高度競爭 (需策略結盟)':'Highly Competitive (Needs Alliances)') :
+                 (lang==='zh'?'價值流失 (跟隨者/互補方獲利)':'Value Leaks (Followers/Complementors Win)');
+
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-6 border border-slate-200 dark:border-slate-700 select-none">
+      <h4 className="font-serif font-bold text-[#004030] dark:text-[#D8C3A5] mb-3">{lang==='zh'?'獨佔性體制評估 (Appropriability Regime)':'Appropriability Regime Assessor'}</h4>
+      <p className="text-xs text-slate-500 mb-4">{lang==='zh'?'調整各維度，觀察發明者能捕獲多少創新價值。':'Adjust dimensions to see how much value the inventor can capture.'}</p>
+      <div className="space-y-3">
+        <div><div className="flex justify-between text-xs font-bold mb-1"><span>{lang==='zh'?'智財保護強弱 (IP Protection)':'IP Protection Strength'}</span><span>{ip}%</span></div><input type="range" min="0" max="100" value={ip} onChange={e=>setIp(+e.target.value)} className="w-full accent-[#004030]"/></div>
+        <div><div className="flex justify-between text-xs font-bold mb-1"><span>{lang==='zh'?'知識隱性程度 (Tacitness)':'Knowledge Tacitness'}</span><span>{tacit}%</span></div><input type="range" min="0" max="100" value={tacit} onChange={e=>setTacit(+e.target.value)} className="w-full accent-[#004030]"/></div>
+        <div><div className="flex justify-between text-xs font-bold mb-1"><span>{lang==='zh'?'領先時間 (Lead Time)':'Lead Time'}</span><span>{lead}%</span></div><input type="range" min="0" max="100" value={lead} onChange={e=>setLead(+e.target.value)} className="w-full accent-[#004030]"/></div>
+        <div><div className="flex justify-between text-xs font-bold mb-1"><span>{lang==='zh'?'對互補資產的掌控 (Complementary Assets)':'Control of Complementary Assets'}</span><span className="text-[#004030] dark:text-[#D8C3A5]">{comp}%</span></div><input type="range" min="0" max="100" value={comp} onChange={e=>setComp(+e.target.value)} className="w-full accent-[#D8C3A5]"/></div>
+      </div>
+      <div className="mt-5 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg text-center">
+        <div className="text-sm font-bold text-slate-600 dark:text-slate-400">{lang==='zh'?'創新獲利潛力':'Value Capture Potential'}</div>
+        <div className={`text-xl font-black mt-1 ${score>=80?'text-green-600':score>=50?'text-yellow-600':'text-red-500'}`}>{score}/100</div>
+        <div className="text-xs mt-1 text-slate-500">{result}</div>
+      </div>
+    </div>
+  );
+};
+
+const DisruptiveCurveLab = ({lang}) => {
+  const [disruptSpeed, setDisruptSpeed] = useState(50);
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current; if(!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width = canvas.offsetWidth * 2; const h = canvas.height = 240 * 2;
+    ctx.scale(2,2); const cw = w/2; const ch = h/2;
+    ctx.clearRect(0,0,cw,ch);
+    const pad = {t:20,r:20,b:30,l:40};
+    const pw = cw-pad.l-pad.r; const ph = ch-pad.t-pad.b;
+    
+    // Y axis (Performance), X axis (Time)
+    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, ch-pad.b); ctx.lineTo(cw-pad.r, ch-pad.b); ctx.stroke();
+    
+    // Good enough line
+    const geY = pad.t + ph*0.6;
+    ctx.beginPath(); ctx.setLineDash([5, 5]); ctx.strokeStyle = '#ef4444';
+    ctx.moveTo(pad.l, geY); ctx.lineTo(cw-pad.r, geY); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#ef4444'; ctx.font = '10px Inter';
+    ctx.fillText(lang==='zh'?"主流客戶 '足夠好' 門檻":"Mainstream 'Good Enough'", pad.l+5, geY-5);
+
+    // Incumbent line (Sustaining)
+    ctx.beginPath(); ctx.strokeStyle = '#004030'; ctx.lineWidth = 2.5;
+    for(let x=0; x<=pw; x+=5) {
+      const px = x/pw;
+      const py = 0.2 + 0.6*(px); // Linear sustaining
+      ctx.lineTo(pad.l+x, pad.t + ph*(1-py));
+    }
+    ctx.stroke();
+    ctx.fillStyle = '#004030'; ctx.fillText(lang==='zh'?'既有企業 (維持性)':'Incumbent (Sustaining)', cw-pad.r-100, pad.t+20);
+
+    // Disruptor line (Steeper slope based on slider)
+    const dSlope = 0.4 + (disruptSpeed/100)*0.6;
+    ctx.beginPath(); ctx.strokeStyle = '#E3B152'; ctx.lineWidth = 2.5;
+    for(let x=0; x<=pw; x+=5) {
+      const px = x/pw;
+      const py = 0.05 + dSlope*Math.pow(px, 2); // Exponential disruptive
+      ctx.lineTo(pad.l+x, pad.t + ph*(1-py));
+    }
+    ctx.stroke();
+    ctx.fillStyle = '#b4862a'; ctx.fillText(lang==='zh'?'破壞者 (Disruptor)':'Disruptor', cw-pad.r-100, ch-pad.b-10);
+
+  }, [disruptSpeed, lang]);
+
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-6 border border-slate-200 dark:border-slate-700 select-none">
+      <h4 className="font-serif font-bold text-[#004030] dark:text-[#D8C3A5] mb-3">{lang==='zh'?'破壞性創新 S 曲線':'Disruptive S-Curve Simulator'}</h4>
+      <div className="flex items-center gap-3 mb-4">
+        <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{lang==='zh'?'破壞者進化速度':'Disruptor Evolution Speed'}</span>
+        <input type="range" min="10" max="100" value={disruptSpeed} onChange={e=>setDisruptSpeed(+e.target.value)} className="flex-1 accent-[#E3B152]"/>
+      </div>
+      <canvas ref={canvasRef} className="w-full max-w-full" style={{height:'240px'}}/>
+    </div>
+  );
+};
+
+const NetworkEffectsLab = ({lang}) => {
+  const [users, setUsers] = useState(10);
+  const standalone = 20;
+  const network = Math.round(Math.pow(users, 1.5) * 0.1); 
+  const total = standalone + network;
+  const progress = Math.min((total/120)*100, 100);
+
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-6 border border-slate-200 dark:border-slate-700 select-none">
+      <h4 className="font-serif font-bold text-[#004030] dark:text-[#D8C3A5] mb-3">{lang==='zh'?'網路外部性價值模型':'Network Effects Value Model'}</h4>
+      <div className="mb-6">
+        <label className="text-xs font-bold text-slate-600 dark:text-slate-400 block mb-2">{lang==='zh'?'安裝基礎 (用戶數 Installed Base)':'Installed Base (Users)'}: {users}</label>
+        <input type="range" min="1" max="100" value={users} onChange={e=>setUsers(+e.target.value)} className="w-full accent-[#004030]"/>
+      </div>
+      <div className="space-y-3">
+        <div>
+          <div className="flex justify-between text-xs mb-1 text-slate-500"><span>{lang==='zh'?'獨立效用 (Standalone Value)':'Standalone Value'}</span><span>{standalone}</span></div>
+          <div className="bg-slate-100 dark:bg-slate-700 h-3 rounded-full overflow-hidden"><div className="bg-slate-400 h-full" style={{width:`${(standalone/120)*100}%`}}></div></div>
+        </div>
+        <div>
+          <div className="flex justify-between text-xs mb-1 text-slate-500"><span>{lang==='zh'?'網路價值 (Network Value)':'Network Value'} (Exponential)</span><span>{network}</span></div>
+          <div className="bg-slate-100 dark:bg-slate-700 h-3 rounded-full overflow-hidden"><div className="bg-blue-500 h-full transition-all" style={{width:`${(network/120)*100}%`}}></div></div>
+        </div>
+        <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+          <div className="flex justify-between text-sm font-bold text-[#004030] dark:text-[#D8C3A5] mb-1"><span>{lang==='zh'?'總價值 (Total Value)':'Total Value'}</span><span>{total}</span></div>
+          <div className="bg-slate-100 dark:bg-slate-700 h-4 rounded-full overflow-hidden"><div className="bg-[#E3B152] h-full transition-all" style={{width:`${progress}%`}}></div></div>
+          {users > 70 && <p className="text-xs text-red-500 font-bold mt-2 text-center animate-pulse">{lang==='zh'?'已跨越傾斜點 (Tipping Point)!':'Crossed the Tipping Point!'}</p>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+/* ═══════ H2 COMPONENT ═══════ */
 const H2 = ({ children, icon, number }) => (
-  <h2 className="text-2xl sm:text-3xl md:text-4xl font-serif font-black text-[#004030] dark:text-[#D8C3A5] mb-6 flex items-center gap-3">
+  <h2 className="text-2xl sm:text-3xl md:text-4xl font-serif font-black text-[#004030] dark:text-[#D8C3A5] mb-6 flex items-center gap-3 select-none">
     {icon && <span className="text-2xl">{icon}</span>}
     {number !== undefined && <span>{number}.</span>}
     <span>{children}</span>
   </h2>
 );
 
-/* ── Lab Components (top-level) ── */
-const SCurveLab = ({lang}) => {
-  const [effort, setEffort] = useState(50);
-  const perf = 100 / (1 + Math.exp(-0.08 * (effort - 50)));
-  return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-      <h4 className="font-bold font-serif text-[#004030] dark:text-[#D8C3A5] mb-4">{lang==='zh'?'技術 S 曲線模擬器':'Technology S-Curve Simulator'}</h4>
-      <p className="text-sm text-slate-500 mb-4">{lang==='zh'?'調整 R&D 投入，觀察技術績效的 S 型增長模式':'Adjust R&D effort to observe the S-shaped growth pattern of technology performance'}</p>
-      <input type="range" min="0" max="100" value={effort} onChange={e=>setEffort(+e.target.value)} className="w-full max-w-full accent-[#004030] dark:accent-[#D8C3A5]"/>
-      <div className="flex justify-between text-xs text-slate-500 mt-1"><span>{lang==='zh'?'低投入':'Low effort'}</span><span>{lang==='zh'?'高投入':'High effort'}</span></div>
-      <div className="mt-4 h-48 bg-slate-50 dark:bg-slate-900 rounded-lg relative overflow-hidden">
-        <svg viewBox="0 0 200 100" className="w-full h-full">
-          <path d={`M0,100 ${Array.from({length:101},(_,i)=>`L${i*2},${100-100/(1+Math.exp(-0.08*(i-50)))}`).join(' ')}`} fill="none" stroke="#D8C3A5" strokeWidth="1.5" opacity="0.4"/>
-          <circle cx={effort*2} cy={100-perf} r="4" fill="#004030"/>
-          <line x1={effort*2} y1={100-perf} x2={effort*2} y2="100" stroke="#004030" strokeWidth="0.5" strokeDasharray="3,2" opacity="0.5"/>
-        </svg>
-        <div className="absolute bottom-2 right-3 bg-[#004030] text-[#D8C3A5] text-xs font-bold px-2 py-1 rounded">{lang==='zh'?'績效':'Perf'}: {perf.toFixed(1)}%</div>
-      </div>
-    </div>
-  );
-};
-
-const InnovFunnelLab = ({lang}) => {
-  const stages = lang==='zh' ? [{n:'原始構想',v:3000},{n:'提交構想',v:300},{n:'小型計畫',v:125},{n:'重大開發',v:4},{n:'產品上市',v:2},{n:'成功產品',v:1}] : [{n:'Raw Ideas',v:3000},{n:'Submitted',v:300},{n:'Small Projects',v:125},{n:'Major Dev',v:4},{n:'Launches',v:2},{n:'Success',v:1}];
-  return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-      <h4 className="font-bold font-serif text-[#004030] dark:text-[#D8C3A5] mb-4">{lang==='zh'?'創新漏斗':'Innovation Funnel'}</h4>
-      <div className="space-y-2">
-        {stages.map((s,i)=>(
-          <div key={i} className="flex items-center gap-3">
-            <div className="w-20 text-xs text-right text-slate-500 shrink-0">{s.n}</div>
-            <div className="flex-1 bg-slate-100 dark:bg-slate-900 rounded-full h-6 overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-[#004030] to-[#D8C3A5] rounded-full transition-all flex items-center justify-end pr-2" style={{width:`${Math.max(Math.log10(s.v+1)/Math.log10(3001)*100,8)}%`}}>
-                <span className="text-xs font-bold text-white">{s.v.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-const NetworkEffectLab = ({lang}) => {
-  const [users, setUsers] = useState(10);
-  const connections = users*(users-1)/2;
-  const value = users * Math.log2(users+1);
-  return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-      <h4 className="font-bold font-serif text-[#004030] dark:text-[#D8C3A5] mb-4">{lang==='zh'?"網路外部性模擬器":"Network Externality Simulator"}</h4>
-      <p className="text-sm text-slate-500 mb-4">{lang==='zh'?'調整使用者人數，觀察 Metcalfe 定律下的網路價值變化':'Adjust user count to observe network value changes under Metcalfe\'s Law'}</p>
-      <input type="range" min="2" max="100" value={users} onChange={e=>setUsers(+e.target.value)} className="w-full max-w-full accent-[#004030] dark:accent-[#D8C3A5]"/>
-      <div className="grid grid-cols-3 gap-3 mt-4">
-        <div className="text-center bg-slate-50 dark:bg-slate-900 rounded-lg p-3"><div className="text-xl font-black text-[#004030] dark:text-[#D8C3A5]">{users}</div><div className="text-xs text-slate-500">{lang==='zh'?'使用者':'Users'}</div></div>
-        <div className="text-center bg-slate-50 dark:bg-slate-900 rounded-lg p-3"><div className="text-xl font-black text-[#004030] dark:text-[#D8C3A5]">{connections.toLocaleString()}</div><div className="text-xs text-slate-500">{lang==='zh'?'連結數':'Connections'}</div></div>
-        <div className="text-center bg-slate-50 dark:bg-slate-900 rounded-lg p-3"><div className="text-xl font-black text-[#004030] dark:text-[#D8C3A5]">{value.toFixed(0)}</div><div className="text-xs text-slate-500">{lang==='zh'?'網路價值':'Network Value'}</div></div>
-      </div>
-    </div>
-  );
-};
-
-const ApproprLab = ({lang}) => {
-  const [patent, setPatent] = useState(50);
-  const [lead, setLead] = useState(50);
-  const [compl, setCompl] = useState(50);
-  const score = (patent*0.3 + lead*0.35 + compl*0.35).toFixed(0);
-  const regime = score > 65 ? (lang==='zh'?'強':'Strong') : score > 35 ? (lang==='zh'?'中':'Moderate') : (lang==='zh'?'弱':'Weak');
-  return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-      <h4 className="font-bold font-serif text-[#004030] dark:text-[#D8C3A5] mb-4">{lang==='zh'?'價值獲取體制分析器':'Appropriability Regime Analyzer'}</h4>
-      <div className="space-y-4">
-        <div><label className="text-sm text-slate-600 dark:text-slate-400 block mb-1">{lang==='zh'?'專利保護強度':'Patent Protection'}: {patent}%</label><input type="range" min="0" max="100" value={patent} onChange={e=>setPatent(+e.target.value)} className="w-full max-w-full accent-[#004030] dark:accent-[#D8C3A5]"/></div>
-        <div><label className="text-sm text-slate-600 dark:text-slate-400 block mb-1">{lang==='zh'?'領先時間':'Lead Time'}: {lead}%</label><input type="range" min="0" max="100" value={lead} onChange={e=>setLead(+e.target.value)} className="w-full max-w-full accent-[#004030] dark:accent-[#D8C3A5]"/></div>
-        <div><label className="text-sm text-slate-600 dark:text-slate-400 block mb-1">{lang==='zh'?'互補性資源':'Complementary Resources'}: {compl}%</label><input type="range" min="0" max="100" value={compl} onChange={e=>setCompl(+e.target.value)} className="w-full max-w-full accent-[#004030] dark:accent-[#D8C3A5]"/></div>
-      </div>
-      <div className="mt-4 bg-slate-50 dark:bg-slate-900 rounded-lg p-4 text-center">
-        <div className="text-3xl font-black font-serif text-[#004030] dark:text-[#D8C3A5]">{score}%</div>
-        <div className="text-sm text-slate-500 mt-1">{lang==='zh'?'獲取體制':'Regime'}: <span className="font-bold">{regime}</span></div>
-      </div>
-    </div>
-  );
-};
-
-const LeaderFollowerLab = ({lang}) => {
-  const cases = lang==='zh' ? [
-    {product:'噴射客機',leader:'De Havilland',follower:'Boeing',winner:'追隨者'},
-    {product:'個人電腦',leader:'Xerox',follower:'IBM',winner:'追隨者'},
-    {product:'即時通訊',leader:'Netscape',follower:'Microsoft',winner:'追隨者'},
-    {product:'浮法玻璃',leader:'Pilkington',follower:'Corning',winner:'領先者'},
-    {product:'MP3播放器',leader:'Diamond',follower:'Apple iPod',winner:'追隨者'},
-    {product:'社群網路',leader:'SixDegrees',follower:'Facebook',winner:'追隨者'}
-  ] : [
-    {product:'Jet Airliner',leader:'De Havilland',follower:'Boeing',winner:'Follower'},
-    {product:'Office PC',leader:'Xerox',follower:'IBM',winner:'Follower'},
-    {product:'Web Browser',leader:'Netscape',follower:'Microsoft',winner:'Follower'},
-    {product:'Float Glass',leader:'Pilkington',follower:'Corning',winner:'Leader'},
-    {product:'MP3 Players',leader:'Diamond',follower:'Apple iPod',winner:'Follower'},
-    {product:'Social Network',leader:'SixDegrees',follower:'Facebook',winner:'Follower'}
-  ];
-  return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-      <h4 className="font-bold font-serif text-[#004030] dark:text-[#D8C3A5] mb-4">{lang==='zh'?'領先者 vs 追隨者戰績表':'Leader vs Follower Scoreboard'}</h4>
-      <div className="overflow-x-auto"><table className="w-full text-sm whitespace-nowrap"><thead><tr className="border-b border-slate-200 dark:border-slate-700">
-        <th className="text-left py-2 px-1 text-slate-500">{lang==='zh'?'產品':'Product'}</th><th className="text-left py-2 px-1 text-slate-500">{lang==='zh'?'領先者':'Leader'}</th><th className="text-left py-2 px-1 text-slate-500">{lang==='zh'?'追隨者':'Follower'}</th><th className="text-left py-2 px-1 text-slate-500">{lang==='zh'?'贏家':'Winner'}</th>
-      </tr></thead><tbody>{cases.map((c,i)=><tr key={i} className="border-b border-slate-100 dark:border-slate-700/50"><td className="py-2 px-1 font-medium">{c.product}</td><td className="py-2 px-1 text-slate-500">{c.leader}</td><td className="py-2 px-1 text-slate-500">{c.follower}</td><td className={`py-2 px-1 font-bold ${c.winner.includes('追隨')||c.winner==='Follower'?'text-orange-500':'text-green-600'}`}>{c.winner}</td></tr>)}</tbody></table></div>
-    </div>
-  );
-};
-
-const PlatformLab = ({lang}) => {
-  const [openness, setOpenness] = useState(50);
-  const penetration = openness * 0.85;
-  const appropriation = 100 - openness * 0.7;
-  return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-      <h4 className="font-bold font-serif text-[#004030] dark:text-[#D8C3A5] mb-4">{lang==='zh'?'平台開放度 vs 獲利權衡':'Platform Openness vs Appropriation Tradeoff'}</h4>
-      <p className="text-sm text-slate-500 mb-4">{lang==='zh'?'調整平台開放程度，觀察市場滲透率與價值擷取的消長':'Adjust platform openness to see the tradeoff between market penetration and value capture'}</p>
-      <input type="range" min="0" max="100" value={openness} onChange={e=>setOpenness(+e.target.value)} className="w-full max-w-full accent-[#004030] dark:accent-[#D8C3A5]"/>
-      <div className="flex justify-between text-xs text-slate-500 mt-1"><span>{lang==='zh'?'封閉 (Apple)':'Closed (Apple)'}</span><span>{lang==='zh'?'開放 (Android)':'Open (Android)'}</span></div>
-      <div className="grid grid-cols-2 gap-4 mt-4">
-        <div className="text-center bg-slate-50 dark:bg-slate-900 rounded-lg p-4">
-          <div className="text-2xl font-black text-[#004030] dark:text-[#D8C3A5]">{penetration.toFixed(0)}%</div>
-          <div className="text-xs text-slate-500 mt-1">{lang==='zh'?'市場滲透率':'Market Penetration'}</div>
-        </div>
-        <div className="text-center bg-slate-50 dark:bg-slate-900 rounded-lg p-4">
-          <div className="text-2xl font-black text-[#004030] dark:text-[#D8C3A5]">{appropriation.toFixed(0)}%</div>
-          <div className="text-xs text-slate-500 mt-1">{lang==='zh'?'價值擷取度':'Value Appropriation'}</div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-/* ── DICT ── */
-const TOTAL = 9; // M0 + M1-M5 + M6(resources) + M7(lab) + M8(analytics)
-const dict = {
-zh: {
-brand:"TIME", title:"科技創新管理與創業", subtitle:"Tech Innov Mgmt & Entrep",
-nav_modules:"單元目錄", nav_prev:"上一單元", nav_next:"下一單元",
-key_terms:"關鍵專有名詞", flip_prompt:"點擊翻轉", audio_read:"語音導覽",
-quiz_title:"模組知識檢定 (隨機 4 題)",
-submit:"提交答案", retry:"重新測驗", score:"得分", correct:"正確", incorrect:"錯誤", explanation:"解析",
-analytics_title:"學習歷程分析", analytics_desc:"追蹤您在各模組的學習時間、互動點擊與測驗表現，匯出完整學習紀錄。",
-analytics_form_title:"填寫學習者資訊",
-analytics_group:"組別", analytics_dept:"系級", analytics_dept_ph:"例：IBS3",
-analytics_id:"學號", analytics_id_ph:"例：112212099",
-analytics_name:"姓名", analytics_name_ph:"例：Jimmy Lo",
-analytics_export_csv:"匯出 CSV 歷程紀錄",
-analytics_fill_required:"請填寫完整資訊以解鎖匯出",
-group_options:["G1","G2","G3","G4","G5","G6","G7","G8","G9","G10","G11","G12","Others"],
-analytics_total_time:"總學習時間", analytics_total_clicks:"總互動點擊",
-analytics_overall_acc:"總體測驗答對率",
-analytics_module:"模組", analytics_time:"停留時間",
-analytics_clicks:"點擊次數", analytics_acc:"答對率",
-analytics_correct_ans_total:"答對 / 已填答 / 總題數",
-analytics_no_data:"尚未測驗", analytics_sec:"秒", analytics_times:"次",
-
-m0_nav:"0. 課程總覽",
-m0_title:"科技創新管理與創業",
-m0_intro:"本課程探討科技密集產業中的創新管理策略，涵蓋從知識創造到商業化的完整價值鏈。了解如何在快速變動的技術環境中建立與維持競爭優勢，掌握標準制定、平台策略與開放式創新的關鍵思維。",
-m0_why:"為什麼科技創新管理重要？",
-m0_why_desc:"在數位經濟時代，技術是產業創生與轉型的主要驅動力。企業必須理解創新過程、價值獲取機制與時機策略，才能在超競爭環境中生存並繁榮。從 Xerox 的靜電複印到 Apple 的 iPhone，歷史反覆證明：掌握創新管理能力者贏得市場。",
-m0_modules:[
-  {num:"01",title:"創新過程與價值獲取",desc:"從知識創造到擴散的完整歷程，以及創新者如何掠取價值"},
-  {num:"02",title:"創新利用策略",desc:"授權、聯盟、合資與內部商業化的策略選擇"},
-  {num:"03",title:"先行者 vs 追隨者",desc:"進入時機、風險管理與策略窗口"},
-  {num:"04",title:"標準、平台與網路外部性",desc:"技術標準之形成與平台戰爭的關鍵策略"},
-  {num:"05",title:"組織創新與開放創新",desc:"培育創造力、跨界創新與企業孵化器"}
-],
-m0_stats:[
-  {val:"4+",label:"關鍵策略框架"},
-  {val:"30+",label:"產業案例"},
-  {val:"40",label:"測驗題目"},
-  {val:"6",label:"互動實驗室"}
-],
-m0_start:"開始學習 →",
-
-m1_nav:"1. 創新過程與價值獲取", m1_title:"創新過程與價值獲取",
-m1_p1:"發明（Invention）是透過新知識或現有知識的新組合，創造新產品與新流程。創新（Innovation）則是發明的初次商業化——透過生產與行銷新產品或使用新生產方法。創新一旦推出，便會擴散：在需求面透過顧客購買，在供給面透過競爭者模仿。",
-m1_p2:"「如果一個人能做出比鄰居更好的捕鼠器，即使他住在森林深處，世界也會踏出一條路通往他家。」然而，發明者更可能出現在破產法庭，而非加勒比海的富豪度假村。",
-m1_p3:"創新的獲利能力取決於創新所創造的價值，以及創新者能掠取的份額。「價值獲取體制」（Regime of Appropriability）描述影響創新價值分配的條件，包含四大關鍵要素：智慧財產權、技術的隱性與複雜度、領先時間、互補性資源。",
-m1_p4:"在人工甜味劑阿斯巴甜案例中，創新者 G.D. Searle 公司成功掠取了大部分價值。但在個人電腦案例中，供應商（Intel、Microsoft）和消費者才是主要受益者。不同的創新導致截然不同的價值分配模式。",
-m1_cards:[
-  {title:"專利",desc:"授予新產品、流程或設計的專屬權利，美國專利有效期 17 年"},
-  {title:"商業秘密",desc:"為配方、流程與客戶名單提供適度法律保護"},
-  {title:"領先時間",desc:"創新者利用時間窗口建立能力與市場地位"},
-  {title:"互補性資源",desc:"將創新商業化所需的財務、製造、行銷與分銷資源"}
-],
-m1_terms:[
-  {front:"Regime of Appropriability\n價值獲取體制",back:"決定創新所創造價值如何在創新者、追隨者、供應商與消費者之間分配的條件組合"},
-  {front:"Complementary Resources\n互補性資源",back:"將創新推向市場所需的多元資源與能力，包括融資、生產、行銷、分銷與售後服務"},
-  {front:"Tacit Knowledge\n隱性知識",back:"無法被文字化記錄的知識，因此難以被競爭者模仿，如 Intel 的晶片製造流程"}
-],
-m1_q:[
-  {q:"創新與發明的主要區別為何？",opts:["創新需要更多資金","創新涉及初次商業化","發明比較困難","兩者沒有差別"],ans:1,exp:"創新是發明的初次商業化，透過生產和行銷新產品或使用新方法。"},
-  {q:"下列何者不屬於價值獲取體制的四大要素？",opts:["智慧財產權","領先時間","組織規模","互補性資源"],ans:2,exp:"四大要素為：智慧財產權、技術隱性與複雜度、領先時間、互補性資源。"},
-  {q:"阿斯巴甜案例中，誰是主要的價值獲取者？",opts:["消費者","供應商","創新者 Searle","追隨者"],ans:2,exp:"G.D. Searle 成功掠取了阿斯巴甜創新的大部分價值。"},
-  {q:"哪種知識最難被模仿？",opts:["編碼化知識","公開專利","隱性知識","業界標準"],ans:2,exp:"隱性知識無法被文字化記錄，因此極難被競爭者複製。"},
-  {q:"個人電腦創新的主要受益者是？",opts:["創新者 MITS 和 Apple","追隨者 IBM","供應商 Intel 和 Microsoft","所有玩家均等"],ans:2,exp:"Intel（微處理器）和 Microsoft（作業系統）獲得了最豐厚的回報。"},
-  {q:"專利保護在哪個產業最有效？",opts:["食品業","電子元件","醫療設備","電信設備"],ans:2,exp:"根據研究數據，醫療設備和藥品產業的專利保護效果最為顯著。"},
-  {q:"Chester Carlson 發明靜電複印後面臨什麼困境？",opts:["專利被駁回","缺乏互補性資源","技術不成熟","市場無需求"],ans:1,exp:"Carlson 多年無法將產品推向市場，因為他缺乏開發、製造、行銷所需的互補性資源。"},
-  {q:"Texas Instruments 如何利用其專利組合？",opts:["全部捐贈","作為收入來源收取授權金","阻止所有競爭者","全部出售"],ans:1,exp:"TI 在 1980 年代開始將專利組合作為收入來源，其授權收入甚至超過了營運收入。"}
-],
-
-m2_nav:"2. 創新利用策略", m2_title:"創新利用策略",
-m2_p1:"企業如何最大化其創新的回報？有多種策略可供選擇：從資源投入最少的授權（Licensing），到需要大量資源的內部商業化，中間還有外包、策略聯盟和合資等不同程度的合作模式。",
-m2_p2:"策略選擇取決於兩組因素：創新的特性與企業的資源和能力。當創新受到清晰的專利或版權保護時，授權是可行的選項。但若缺乏專屬技術，如 Steve Jobs 開發 Apple I 時，則只能選擇自行創業。",
-m2_p3:"ARM 公司將其微處理器技術授權給超過 200 家半導體公司，而 Dolby 的聲音降噪技術授權收入佔其 2014 年營收的 82%。相反，James Dyson 在未能說服任何大型家電公司授權其雙旋風吸塵器技術後，選擇了自行設立公司進行製造與行銷。",
-m2_cards:[
-  {title:"授權 (Licensing)",desc:"風險低但回報有限，面臨被授權方動力不足或竊取創新的風險"},
-  {title:"策略聯盟",desc:"保持彈性但結構鬆散，需要合作管理能力"},
-  {title:"合資企業",desc:"分擔投資與風險，但可能面臨文化衝突與合作分歧"},
-  {title:"內部商業化",desc:"投資需求最大但掌控力最強，需要完整的互補性資源"}
-],
-m2_terms:[
-  {front:"Licensing\n授權",back:"將智慧財產權的使用權授予他人以換取授權金，適用於專利或版權保護明確的創新"},
-  {front:"Innovation Ecosystem\n創新生態系統",back:"創新日益需要多家公司的協調回應，創新者需辨識並管理生態系統中的相互依存關係"},
-  {front:"Strategic Window\n策略窗口",back:"企業的資源與能力與市場機會相匹配的特定時間段，不同企業有不同的策略窗口"}
-],
-m2_q:[
-  {q:"哪種策略需要最少的資源投入？",opts:["合資","內部商業化","授權","策略聯盟"],ans:2,exp:"授權只需讓被授權方進行後續商業化，創新者的投入最少。"},
-  {q:"Dolby 主要透過什麼方式獲利？",opts:["自行製造產品","技術授權收入","股市投資","政府補助"],ans:1,exp:"Dolby 的聲音降噪技術授權收入佔其 2014 年營收的 82%。"},
-  {q:"ARM 的商業模式屬於？",opts:["垂直整合","技術授權","消費品零售","製造代工"],ans:1,exp:"ARM 將微處理器技術授權給 200 多家半導體公司。"},
-  {q:"James Dyson 為何選擇自行設廠？",opts:["授權收入太低","沒有公司願意授權其技術","專利過期了","政府要求"],ans:1,exp:"Dyson 在未能說服任何大型家電公司授權其技術後，選擇自行製造與行銷。"},
-  {q:"創新生態系統管理的核心挑戰是？",opts:["降低成本","協調多家公司的相互依存","增加專利","縮短研發時間"],ans:1,exp:"Ron Adner 指出創新日益需要多家公司的協調回應，需管理生態系統中的相互依存關係。"},
-  {q:"HDTV 推遲上市的原因是？",opts:["技術不成熟","生態系統協調不足","政府管制","消費者不感興趣"],ans:1,exp:"HDTV 推遲上市可歸因於電視製造商、製作公司和廣播公司之間協調不足。"},
-  {q:"新創公司最適合的策略通常是？",opts:["大規模內部商業化","授權或結盟以取得互補性資源","獨自承擔所有風險","等待市場成熟"],ans:1,exp:"新創公司缺乏互補性資源，自然傾向授權或與大型企業合作。"},
-  {q:"Panasonic 和 Tesla 在 2014 年成立合資企業的目的是？",opts:["生產智慧手機","開發鋰電池超級工廠","發射衛星","開發社群媒體"],ans:1,exp:"Panasonic 和 Tesla 合資開發 Gigafactory 來生產鋰離子電池。"}
-],
-
-m3_nav:"3. 先行者 vs 追隨者", m3_title:"先行者 vs 追隨者",
-m3_p1:"在新興和技術密集產業中，領先創新還是追隨更有利？證據是混合的：有些產品由領先者先搶得先機，有些則由追隨者後來居上。噴射客機領域 De Havilland 是先驅，但 Boeing 成為最終贏家。社群網路的 SixDegrees.com 是先行者，但 Facebook 才是征服世界的那一個。",
-m3_p2:"最佳進入時機取決於企業所擁有的資源和能力。小型技術公司可能別無選擇只能率先創新，而大型企業如 IBM 則可利用其製造、分銷和聲譽優勢，在市場成熟時才進入。EMI 推出全球首台 CT 掃描儀，但 General Electric 憑藉其在醫療電子領域的技術和商業能力，最終將 EMI 逐出市場。",
-m3_p3:"新興產業面臨兩大不確定性來源：技術不確定性（技術演進的不可預測性）和市場不確定性（新產品市場規模的未知）。企業可透過與領先用戶合作、限制風險曝露、保持彈性、以及多元策略來管理風險。",
-m3_cards:[
-  {title:"先行者優勢",desc:"建立專利壁壘、學習曲線領先、形塑技術標準、搶佔市場心智"},
-  {title:"追隨者優勢",desc:"降低不確定性成本、利用已成熟的基礎設施、從先行者的錯誤中學習"},
-  {title:"技術不確定性",desc:"技術演進和主流設計選擇的不可預測性"},
-  {title:"市場不確定性",desc:"新產品市場規模和成長率的未知性"}
-],
-m3_terms:[
-  {front:"First-Mover Advantage\n先行者優勢",back:"率先進入市場帶來的優勢：專利保護、學習曲線、標準制定與市場心智佔有率"},
-  {front:"Strategic Window\n策略窗口",back:"企業資源與能力恰好匹配市場機會的特定時間段，小公司窗口早而短，大公司晚而長"},
-  {front:"Active Waiting\n主動等待",back:"Don Sull 提出的策略：監控市場發展、整裝資源，為大規模進入做準備"}
-],
-m3_q:[
-  {q:"以下哪個案例中領先者最終獲勝？",opts:["VCR 錄影帶","個人電腦","浮法玻璃","MP3 播放器"],ans:2,exp:"Pilkington 在浮法玻璃領域既是先驅也是最終贏家。"},
-  {q:"IBM 進入個人電腦市場的時機策略是？",opts:["率先進入","等待市場成熟後利用互補性資源進入","完全放棄","與 Apple 合作"],ans:1,exp:"IBM 延遲進入直到市場發展到其優勢能產生最大影響。"},
-  {q:"EMI 在 CT 掃描儀市場失敗的原因是？",opts:["技術太差","GE 的技術和商業能力更強","專利過期","市場消失"],ans:1,exp:"GE 憑藉醫療電子領域的廣大技術和商業能力壓倒了 EMI 的先發優勢。"},
-  {q:"管理新興產業風險的策略不包含？",opts:["與領先用戶合作","大幅舉債擴張","保持彈性","多元策略"],ans:1,exp:"應避免舉債以降低財務槓桿，降低風險曝露。"},
-  {q:"Facebook 相對於 SixDegrees.com 屬於？",opts:["領先者","追隨者","同時進入者","無關"],ans:1,exp:"SixDegrees.com 是社群網路先驅，Facebook 是後來居上的追隨者。"},
-  {q:"Twitter 最初是什麼平台？",opts:["社群網路","播客平台","電子商務","遊戲平台"],ans:1,exp:"Twitter 原名 Odeo，最初開發播客平台，後來轉型為網路短訊平台。"},
-  {q:"Markides 和 Geroski 認為追隨者的機會在於？",opts:["複製先驅的技術","將利基市場擴大為大眾市場","降低產品價格","申請更多專利"],ans:1,exp:"成功追隨者的機會是透過降低成本和提高品質，將利基市場擴展為大眾市場。"},
-  {q:"Von Hippel 的「領先用戶」概念強調什麼？",opts:["大量購買的客戶","提供市場先行指標並協助開發的使用者","政府客戶","競爭對手"],ans:1,exp:"領先用戶提供先行市場指標、協助開發新品、並提供早期現金流。"}
-],
-
-m4_nav:"4. 標準與平台策略", m4_title:"標準、平台與網路外部性",
-m4_p1:"在數位網路經濟中，越來越多市場受到技術標準的影響。對企業而言，擁有一個標準可以帶來無與倫比的競爭優勢與豐厚回報。Microsoft 的 Windows、Intel 的 x86 系列、Apple 的 iTunes 都是掌握標準帶來巨大利潤的典型案例。",
-m4_p2:"網路外部性存在於產品對個人的價值取決於其他使用者數量的情況。電話是經典例子：一個人使用電話毫無價值，但當數百萬人都使用時，價值就巨大了。網路外部性創造正向回饋——一旦某技術取得市場領先，就會吸引更多使用者，形成贏家通吃的市場。",
-m4_p3:"平台市場是數位技術加上網路或無線連接所創造的雙邊（甚至多邊）市場。作業系統是典型的平台：Microsoft Windows、Apple iOS 和 Google Android 在使用者之間創造直接外部性，在應用程式供應商之間創造間接外部性。平台戰爭的核心在於市場滲透率與價值擷取之間的權衡。",
-m4_p4:"VCR 戰爭中，Sony 嚴格控制 Betamax 系統，而 JVC 將 VHS 廣泛授權，最終 VHS 以更大的市場滲透率獲勝。在 PC 市場，IBM 建立了主導平台，但 Intel 和 Microsoft 擷取了大部分價值。Apple 則選擇封閉控制以賺取高利潤，卻犧牲了市場主導地位。",
-m4_cards:[
-  {title:"公共標準",desc:"免費或低廉費用取得，如 Linux、GSM 行動電話標準"},
-  {title:"私有標準",desc:"由企業擁有的技術和設計，如 Apple iOS、Intel x86"},
-  {title:"網路外部性",desc:"產品價值隨使用者數量增加而提升的現象"},
-  {title:"正向回饋與傾覆",desc:"市場領先者吸引更多使用者，形成贏家通吃局面"}
-],
-m4_terms:[
-  {front:"Network Externality\n網路外部性",back:"產品對個人的價值取決於使用同一產品的其他使用者數量，如電話、社群網路"},
-  {front:"Tipping\n傾覆效應",back:"一旦達到特定門檻，累積力量變得勢不可擋，市場迅速收斂為贏家通吃的結局"},
-  {front:"Platform Strategy\n平台策略",back:"建立連接兩組或多組使用者的基礎設施，創造直接和間接網路外部性"}
-],
-m4_q:[
-  {q:"以下何者不是網路外部性的來源？",opts:["使用者彼此連結","互補產品供給","轉換成本","產品的絕對品質"],ans:3,exp:"網路外部性來源包括使用者連結、互補品可得性和轉換成本，而非產品絕對品質。"},
-  {q:"VCR 戰爭中 VHS 勝出的關鍵原因是？",opts:["技術更優秀","JVC 將系統廣泛授權","Sony 退出市場","政府介入"],ans:1,exp:"JVC 廣泛授權 VHS 系統促進了更大的市場滲透率。"},
-  {q:"QWERTY 鍵盤佈局為何持續使用？",opts:["打字最快","技術最先進","集體鎖定效應","政府規定"],ans:2,exp:"QWERTY 是集體鎖定的經典案例——即使有更好的 Dvorak 鍵盤也無法取代。"},
-  {q:"在 PC 市場中，誰擷取了最多價值？",opts:["IBM","Apple","Intel 和 Microsoft","Dell"],ans:2,exp:"IBM 建立了主導平台，但 Intel 和 Microsoft 透過擁有核心標準技術擷取了最多價值。"},
-  {q:"平台策略的核心權衡是？",opts:["成本與品質","速度與準確","市場滲透率與價值擷取","規模與範疇"],ans:2,exp:"平台所有者需在最大化市場滲透和最大化自身價值擷取之間取得平衡。"},
-  {q:"Google Android 屬於哪種標準？",opts:["封閉私有標準","政府強制標準","開源標準","無標準"],ans:2,exp:"Android 是開源的，可自由使用、修改和開發。"},
-  {q:"贏得標準戰爭需要的關鍵資源不包括？",opts:["控制已安裝客戶基礎","智慧財產權","品牌聲譽","政府補貼"],ans:3,exp:"Shapiro 和 Varian 強調控制安裝基礎、IP 權利、創新能力、先行優勢和品牌聲譽。"},
-  {q:"Blu-ray vs HD-DVD 之爭中，哪個事件導致市場傾覆？",opts:["Sony 降價","政府決定","Warner Brothers 轉投 Sony 陣營","技術突破"],ans:2,exp:"Warner Brothers 的叛逃是市場突然傾向 Sony 陣營的關鍵事件。"}
-],
-
-m5_nav:"5. 組織創新與開放創新", m5_title:"組織創新與開放創新",
-m5_p1:"發明是創造力的行為，而創新則需要合作與跨功能整合。創造力通常是個人行為——在概念或物件之間建立新的有意義關聯。但個人的創造力高度依賴組織環境：R&D 實驗室的生產力關鍵取決於工程師和科學家建立的溝通網路。",
-m5_p2:"開放式創新（Open Innovation）是一種從組織內外尋求、利用和應用知識的創新方法。Henry Chesbrough 指出：在知識豐沛的世界中，並非所有聰明人都為你工作，因此你必須找到他們、與他們連結、並在他們的基礎上發展。P&G 的 Connect and Develop 計畫以及 IBM 的 Innovation Jam 都是開放式創新的卓越範例。",
-m5_p3:"組織創新的關鍵機制包括：跨功能產品開發團隊、產品冠軍制度、以及企業孵化器。3M 公司有著悠久的產品冠軍傳統——讓個人提出創意、說服身邊的人、成為專案經理帶領團隊。Cisco 的新興技術事業群（EMTG）則在 18 個月內收集了 400 個新事業構想。",
-m5_cards:[
-  {title:"創造力組織條件",desc:"平等文化、自主空間、認可讚賞、多元化團隊與建設性衝突"},
-  {title:"P&G Connect & Develop",desc:"70 位技術創業者搜尋外部創新，35% 新品源自公司外部"},
-  {title:"IBM Innovation Jam",desc:"15 萬人參與 72 小時線上腦力激盪，預算 1 億美元開發 10 項新事業"},
-  {title:"產品冠軍制度",desc:"讓創意發起者領導開發團隊，從發明一路帶到商業化"}
-],
-m5_terms:[
-  {front:"Open Innovation\n開放式創新",back:"從組織內外尋求、利用和應用知識的方法——因為並非所有聰明人都在你的組織內"},
-  {front:"Product Champion\n產品冠軍",back:"以個人承諾推動創新克服組織阻力的關鍵人物——Schön 指出新想法要不找到冠軍，要不就死去"},
-  {front:"Corporate Incubator\n企業孵化器",back:"資助和培育內部技術發展而成的新事業單位，需與公司核心業務緊密連結才能成功"}
-],
-m5_q:[
-  {q:"創造力的組織條件不包含？",opts:["平等文化","嚴格層級控制","多元化團隊","建設性衝突"],ans:1,exp:"創新組織需要扁平結構而非嚴格層級控制。"},
-  {q:"P&G 的 Connect and Develop 計畫成果如何？",opts:["失敗收場","35% 新品源自外部","全部由內部研發","僅用於基礎研究"],ans:1,exp:"到 2005 年，P&G 35% 的新產品來自公司外部。"},
-  {q:"Henry Chesbrough 開放式創新的核心理念是？",opts:["所有創新應保密","知識豐沛世界中需連結外部聰明人","只向大學合作","減少研發支出"],ans:1,exp:"在知識豐沛的世界中，需要找到外部人才並在他們的基礎上發展。"},
-  {q:"Schön 關於產品冠軍的核心發現是？",opts:["冠軍不重要","新想法需要冠軍否則就會消亡","管理層應做所有決定","冠軍需要是 CEO"],ans:1,exp:"Schön 對 15 項重大創新的研究結論：新想法要不找到冠軍，要不就死去。"},
-  {q:"創新組織與營運組織在結構上的主要差異是？",opts:["創新組織更官僚","創新組織強調層級控制","創新組織採扁平任務導向團隊","兩者沒有差異"],ans:2,exp:"創新組織需要扁平結構、任務導向團隊、模糊的組織邊界。"},
-  {q:"IBM Innovation Jam 共有多少人參與？",opts:["1,500 人","15,000 人","150,000 人","1,500,000 人"],ans:2,exp:"IBM 的 Innovation Jam 在 72 小時內吸引了 15 萬名參與者。"},
-  {q:"企業孵化器常見的失敗原因是？",opts:["資金不足","與公司核心業務脫節","技術太新","員工太多"],ans:1,exp:"Hamel 和 Prahalad 指出許多企業孵化器成為缺乏內部支持的想法孤兒院。"},
-  {q:"3M 公司創新文化的特點是？",opts:["由高層決定所有研發方向","員工自主提出構想並成為專案經理","完全外包研發","不鼓勵實驗"],ans:1,exp:"3M 鼓勵員工提出構想、說服周遭同事、成為專案經理帶領開發。"}
-],
-
-m6_nav:"6. 外部資源", m6_title:"延伸學習資源", m6_desc:"精選與科技創新管理相關的學術、產業和實務資源。",
-mlab_nav:"7. 互動實驗室", mlab_title:"互動實驗室", mlab_desc:"透過互動模擬器深入探索科技創新管理的核心概念。調整參數觀察策略動態變化。",
-mlab_labs:[
-  {title:"技術 S 曲線模擬器",desc:"觀察 R&D 投入與績效的非線性關係"},
-  {title:"創新漏斗",desc:"從 3000 個構想到 1 個成功產品"},
-  {title:"網路外部性模擬器",desc:"Metcalfe 定律下的網路價值"},
-  {title:"價值獲取體制分析器",desc:"專利、領先時間與互補資源的綜合評估"},
-  {title:"領先者 vs 追隨者",desc:"歷史案例中的贏家分佈"},
-  {title:"平台開放度權衡",desc:"市場滲透與價值擷取的消長"}
-],
-
-date:"Version 2026.03.29",
-copyright:"For Educational Use Only",
-architect_label:"Architect:",
-architect_name:"Prof. Shihmin Lo",
-architect_url:"https://www.ibs.ncnu.edu.tw/index.php/faculty/tenured-professor/299-smlo"
-},
-
-en: {
-brand:"TIME", title:"Tech Innov Mgmt & Entrep", subtitle:"Tech Innov Mgmt & Entrep",
-nav_modules:"Module Directory", nav_prev:"Previous", nav_next:"Next",
-key_terms:"Key Terms", flip_prompt:"Click to flip", audio_read:"Audio Guide",
-quiz_title:"Module Quiz (Random 4 Questions)",
-submit:"Submit", retry:"Retry", score:"Score", correct:"Correct", incorrect:"Incorrect", explanation:"Explanation",
-analytics_title:"Learning Analytics", analytics_desc:"Track your learning time, interactions, and quiz performance across modules. Export your complete learning record.",
-analytics_form_title:"Personal Info",
-analytics_group:"Group", analytics_dept:"Dept/Class", analytics_dept_ph:"e.g., IBS3",
-analytics_id:"Student ID", analytics_id_ph:"e.g., 112212099",
-analytics_name:"Name", analytics_name_ph:"e.g., Jimmy Lo",
-analytics_export_csv:"Export CSV Record",
-analytics_fill_required:"Please fill in all fields to unlock export",
-group_options:["G1","G2","G3","G4","G5","G6","G7","G8","G9","G10","G11","G12","Others"],
-analytics_total_time:"Total Learning Time", analytics_total_clicks:"Total Interactions",
-analytics_overall_acc:"Overall Quiz Accuracy",
-analytics_module:"Module", analytics_time:"Time Spent",
-analytics_clicks:"Clicks", analytics_acc:"Accuracy",
-analytics_correct_ans_total:"Correct / Answered / Total",
-analytics_no_data:"No data yet", analytics_sec:"sec", analytics_times:"times",
-
-m0_nav:"0. Overview",
-m0_title:"Tech Innovation Management & Entrepreneurship",
-m0_intro:"This course explores innovation management strategies in technology-intensive industries, covering the complete value chain from knowledge creation to commercialization. Learn how to build and sustain competitive advantage in rapidly changing technological environments, mastering standards-setting, platform strategies, and open innovation.",
-m0_why:"Why Does Tech Innovation Management Matter?",
-m0_why_desc:"In the digital economy era, technology is the primary driver of industry creation and transformation. Companies must understand innovation processes, value appropriation mechanisms, and timing strategies to survive and thrive in hyper-competitive environments. From Xerox's xerography to Apple's iPhone, history repeatedly shows: those who master innovation management win markets.",
-m0_modules:[
-  {num:"01",title:"Innovation Process & Value Capture",desc:"From knowledge creation to diffusion, and how innovators appropriate value"},
-  {num:"02",title:"Strategies to Exploit Innovation",desc:"Licensing, alliances, joint ventures, and internal commercialization"},
-  {num:"03",title:"Leader vs Follower",desc:"Entry timing, risk management, and strategic windows"},
-  {num:"04",title:"Standards, Platforms & Network Effects",desc:"Technical standards formation and platform war strategies"},
-  {num:"05",title:"Organizing & Open Innovation",desc:"Fostering creativity, external innovation, and corporate incubators"}
-],
-m0_stats:[
-  {val:"4+",label:"Key Strategy Frameworks"},
-  {val:"30+",label:"Industry Cases"},
-  {val:"40",label:"Quiz Questions"},
-  {val:"6",label:"Interactive Labs"}
-],
-m0_start:"Start Learning →",
-
-m1_nav:"1. Innovation & Value Capture", m1_title:"Innovation Process & Value Capture",
-m1_p1:"Invention is the creation of new products and processes through new knowledge or novel combinations of existing knowledge. Innovation is the initial commercialization of invention—by producing and marketing a new product or using a new production method. Once introduced, innovation diffuses: on the demand side through customer adoption, on the supply side through competitor imitation.",
-m1_p2:"\"If a man can make a better mousetrap than his neighbor, the world will make a beaten path to his door.\" Yet inventors of new mousetraps are more likely to be found at bankruptcy courts than in millionaires' playgrounds.",
-m1_p3:"The profitability of an innovation depends on the value created and the share the innovator can capture. The 'Regime of Appropriability' describes the conditions influencing value distribution, comprising four key components: property rights, tacitness and complexity of technology, lead time, and complementary resources.",
-m1_p4:"In the aspartame case, innovator G.D. Searle captured most of the value. But in PCs, suppliers (Intel, Microsoft) and consumers were the primary beneficiaries. Different innovations lead to vastly different value distributions.",
-m1_cards:[
-  {title:"Patents",desc:"Exclusive rights to new products, processes, or designs; valid for 17 years in the US"},
-  {title:"Trade Secrets",desc:"Modest legal protection for recipes, formulas, processes, and customer lists"},
-  {title:"Lead Time",desc:"The window of opportunity for the innovator to build capabilities and market position"},
-  {title:"Complementary Resources",desc:"Financial, manufacturing, marketing, and distribution resources needed for commercialization"}
-],
-m1_terms:[
-  {front:"Regime of Appropriability",back:"The set of conditions determining how value created by innovation is distributed among innovators, followers, suppliers, and consumers"},
-  {front:"Complementary Resources",back:"Diverse resources and capabilities needed to bring innovations to market, including financing, production, marketing, distribution, and service"},
-  {front:"Tacit Knowledge",back:"Knowledge that cannot be codified in writing, making it difficult for competitors to imitate, like Intel's chip manufacturing processes"}
-],
-m1_q:[
-  {q:"What is the main difference between innovation and invention?",opts:["Innovation requires more capital","Innovation involves initial commercialization","Invention is more difficult","No difference"],ans:1,exp:"Innovation is the initial commercialization of invention through producing and marketing new products."},
-  {q:"Which is NOT a component of the appropriability regime?",opts:["Property rights","Lead time","Organization size","Complementary resources"],ans:2,exp:"The four components are: property rights, tacitness/complexity, lead time, and complementary resources."},
-  {q:"In the aspartame case, who captured most value?",opts:["Consumers","Suppliers","Innovator Searle","Followers"],ans:2,exp:"G.D. Searle successfully appropriated a major share of aspartame's value."},
-  {q:"Which type of knowledge is hardest to imitate?",opts:["Codified knowledge","Published patents","Tacit knowledge","Industry standards"],ans:2,exp:"Tacit knowledge cannot be written down and is therefore extremely difficult to replicate."},
-  {q:"Who were the primary beneficiaries of PC innovation?",opts:["Innovators MITS and Apple","Follower IBM","Suppliers Intel and Microsoft","All players equally"],ans:2,exp:"Intel (microprocessors) and Microsoft (OS) earned the greatest returns."},
-  {q:"Patent protection is most effective in which industry?",opts:["Food","Electronic components","Medical equipment","Telecom equipment"],ans:2,exp:"Research data shows patent protection is most effective in medical equipment and drugs."},
-  {q:"What challenge did Chester Carlson face after inventing xerography?",opts:["Patent rejected","Lacked complementary resources","Technology immature","No market demand"],ans:1,exp:"Carlson couldn't bring his product to market for years because he lacked development, manufacturing, and marketing resources."},
-  {q:"How did Texas Instruments exploit its patent portfolio?",opts:["Donated all patents","Earned royalty income exceeding operating income","Blocked all competitors","Sold all patents"],ans:1,exp:"TI began exploiting its patent portfolio as a revenue source in the 1980s, with royalties exceeding operating income."}
-],
-
-m2_nav:"2. Exploitation Strategies", m2_title:"Strategies to Exploit Innovation",
-m2_p1:"How should a firm maximize returns on innovation? Several strategies are available: from licensing (least resource-intensive) to internal commercialization (most resource-intensive), with outsourcing, strategic alliances, and joint ventures in between.",
-m2_p2:"Strategy choice depends on two factors: the innovation's characteristics and the firm's resources and capabilities. When innovation is protected by clear patents or copyrights, licensing is viable. But without proprietary technology, as when Steve Jobs developed Apple I, self-commercialization becomes the only option.",
-m2_p3:"ARM licenses its microprocessor technology to over 200 semiconductor companies, while Dolby's sound-reduction licensing accounted for 82% of its 2014 revenues. Conversely, James Dyson created his own company after failing to interest any major appliance company in licensing his dual-cyclone vacuum cleaner technology.",
-m2_cards:[
-  {title:"Licensing",desc:"Low risk/return; faces risk of licensee lacking motivation or stealing the innovation"},
-  {title:"Strategic Alliance",desc:"Flexible but loosely structured; requires collaborative management capability"},
-  {title:"Joint Venture",desc:"Shares investment and risk; potential for culture clash and partner disagreement"},
-  {title:"Internal Commercialization",desc:"Highest investment but greatest control; requires full complementary resources"}
-],
-m2_terms:[
-  {front:"Licensing",back:"Granting usage rights to intellectual property in exchange for royalties, viable when patents or copyrights provide clear protection"},
-  {front:"Innovation Ecosystem",back:"Innovation increasingly requires coordinated responses by multiple companies; innovators must map and manage interdependencies"},
-  {front:"Strategic Window",back:"The period when a firm's resources and capabilities are aligned with available market opportunities; differs by firm"}
-],
-m2_q:[
-  {q:"Which strategy requires the least resource commitment?",opts:["Joint venture","Internal commercialization","Licensing","Strategic alliance"],ans:2,exp:"Licensing requires little involvement by the innovator in subsequent commercialization."},
-  {q:"How does Dolby primarily generate revenue?",opts:["Manufacturing products","Technology licensing income","Stock investments","Government grants"],ans:1,exp:"Dolby's sound-reduction licensing accounted for 82% of its 2014 revenues."},
-  {q:"ARM's business model is best described as?",opts:["Vertical integration","Technology licensing","Consumer retail","Contract manufacturing"],ans:1,exp:"ARM licenses its microprocessor technology to over 200 semiconductor companies."},
-  {q:"Why did James Dyson start his own company?",opts:["Licensing revenues too low","No company would license his technology","Patent expired","Government requirement"],ans:1,exp:"Dyson created his own company after failing to interest any major appliance company in licensing."},
-  {q:"The core challenge of innovation ecosystem management is?",opts:["Cost reduction","Coordinating interdependencies among multiple companies","Increasing patents","Shortening R&D time"],ans:1,exp:"Ron Adner observes that innovation increasingly requires coordinated responses by multiple companies."},
-  {q:"Why was HDTV introduction delayed?",opts:["Immature technology","Inadequate ecosystem coordination","Government regulation","Consumer disinterest"],ans:1,exp:"The delay was attributed to inadequate coordination among TV manufacturers, production studios, and broadcasters."},
-  {q:"Start-up firms typically prefer which strategy?",opts:["Large-scale internal commercialization","Licensing or alliances to access complementary resources","Taking all risks alone","Waiting for market maturity"],ans:1,exp:"Start-ups lack complementary resources and naturally gravitate toward licensing or alliances."},
-  {q:"Panasonic and Tesla's 2014 joint venture aimed to?",opts:["Produce smartphones","Develop a lithium-ion battery Gigafactory","Launch satellites","Develop social media"],ans:1,exp:"Panasonic and Tesla formed a JV to develop a Gigafactory to produce lithium-ion batteries."}
-],
-
-m3_nav:"3. Leader vs Follower", m3_title:"Leader vs Follower",
-m3_p1:"Is it better to lead or follow in emerging industries? The evidence is mixed: some products see the leader grab the prize, others see followers triumph. De Havilland pioneered jet airliners but Boeing won. SixDegrees.com pioneered social networking but Facebook conquered the world.",
-m3_p2:"Optimal entry timing depends on a firm's resources and capabilities. Small tech firms may have no choice but to pioneer, while large firms like IBM can leverage their manufacturing, distribution, and reputation advantages to enter when the market matures. EMI introduced the world's first CT scanner, but GE's vast capabilities drove EMI out of the market.",
-m3_p3:"Emerging industries face two uncertainty sources: technological uncertainty (unpredictability of tech evolution) and market uncertainty (unknown market size for new products). Firms can manage risk through cooperating with lead users, limiting risk exposure, maintaining flexibility, and pursuing multiple strategies.",
-m3_cards:[
-  {title:"First-Mover Advantages",desc:"Patent barriers, learning curve leadership, shaping standards, capturing mindshare"},
-  {title:"Follower Advantages",desc:"Reduced uncertainty costs, leveraging mature infrastructure, learning from pioneer mistakes"},
-  {title:"Technological Uncertainty",desc:"Unpredictability of technology evolution and dominant design selection"},
-  {title:"Market Uncertainty",desc:"Unknown market size and growth rates for new products"}
-],
-m3_terms:[
-  {front:"First-Mover Advantage",back:"Benefits of pioneering: patent protection, learning curve advantages, standard-setting, and market mindshare"},
-  {front:"Strategic Window",back:"The period when a firm's resources align with market opportunities; small firms have early, short windows; large firms have later, longer ones"},
-  {front:"Active Waiting",back:"Don Sull's strategy: monitoring market developments and assembling resources while preparing for large-scale entry"}
-],
-m3_q:[
-  {q:"In which case did the leader ultimately win?",opts:["VCRs","Personal computers","Float glass","MP3 players"],ans:2,exp:"Pilkington was both the pioneer and ultimate winner in float glass."},
-  {q:"IBM's PC market entry strategy was to?",opts:["Enter first","Wait for market maturity to leverage complementary resources","Completely abstain","Partner with Apple"],ans:1,exp:"IBM delayed entry until the market had developed to the point where its strengths could have maximum impact."},
-  {q:"Why did EMI fail in the CT scanner market?",opts:["Poor technology","GE's superior technical and commercial capabilities","Patent expiration","Market disappeared"],ans:1,exp:"GE's vast technological and commercial capabilities overwhelmed EMI's first-mover advantage."},
-  {q:"Which is NOT a strategy for managing emerging industry risk?",opts:["Cooperating with lead users","Taking on massive debt","Maintaining flexibility","Multiple strategies"],ans:1,exp:"Firms should avoid debt to lower financial leverage and reduce risk exposure."},
-  {q:"Facebook relative to SixDegrees.com was a?",opts:["Leader","Follower","Simultaneous entrant","Unrelated"],ans:1,exp:"SixDegrees.com pioneered social networking; Facebook was the successful follower."},
-  {q:"Twitter was originally what type of platform?",opts:["Social network","Podcasting platform","E-commerce","Gaming"],ans:1,exp:"Twitter (originally Odeo) was founded to develop a podcasting platform before pivoting."},
-  {q:"Markides and Geroski argue followers' opportunity is to?",opts:["Copy pioneer's technology","Grow niche markets into mass markets","Lower prices","File more patents"],ans:1,exp:"Successful followers grow niche markets into mass markets by lowering cost and increasing quality."},
-  {q:"Von Hippel's 'lead users' concept emphasizes?",opts:["High-volume buyers","Users providing market indicators and helping develop new products","Government customers","Competitors"],ans:1,exp:"Lead users provide leading market indicators, assist product development, and offer early cash flow."}
-],
-
-m4_nav:"4. Standards & Platforms", m4_title:"Standards, Platforms & Network Externalities",
-m4_p1:"In the digital networked economy, more markets are subject to standards that play a vital role in ensuring compatibility. Owning a standard can be an unmatched source of competitive advantage. Microsoft's Windows, Intel's x86, and Apple's iTunes are prime examples of standards generating massive profits.",
-m4_p2:"A network externality exists when the value of a product depends on the number of other users. The telephone is the classic example: talking to yourself has little value, but millions of connected users create enormous value. Network externalities create positive feedback—once a technology gains market leadership, it attracts more users, creating winner-takes-all markets.",
-m4_p3:"Platform-based markets are two-sided (or multi-sided) markets created by digital technologies with network connectivity. Operating systems are quintessential platforms: Windows, iOS, and Android create direct externalities among users and indirect externalities among app suppliers. Platform wars center on the tradeoff between market penetration and value appropriation.",
-m4_p4:"In the VCR war, Sony kept tight control of Betamax while JVC broadly licensed VHS—VHS won through greater market penetration. In PCs, IBM established the dominant platform but Intel and Microsoft captured most value. Apple chose closed control for high margins but sacrificed market dominance.",
-m4_cards:[
-  {title:"Public Standards",desc:"Freely or cheaply available, like Linux, GSM mobile phone standard"},
-  {title:"Private Standards",desc:"Owned by companies, like Apple iOS, Intel x86"},
-  {title:"Network Externalities",desc:"Product value increases as the number of users grows"},
-  {title:"Positive Feedback & Tipping",desc:"Market leader attracts more users, creating winner-takes-all dynamics"}
-],
-m4_terms:[
-  {front:"Network Externality",back:"Product value to an individual depends on the number of other users of the same product, as with telephones and social networks"},
-  {front:"Tipping",back:"Once a certain threshold is reached, cumulative forces become unstoppable, rapidly converging the market into a winner-takes-all outcome"},
-  {front:"Platform Strategy",back:"Building infrastructure connecting two or more user groups, creating direct and indirect network externalities"}
-],
-m4_q:[
-  {q:"Which is NOT a source of network externalities?",opts:["Users linked in a network","Complementary product availability","Switching costs","Absolute product quality"],ans:3,exp:"Sources include user linkage, complement availability, and switching costs—not absolute quality."},
-  {q:"Why did VHS win the VCR war?",opts:["Superior technology","JVC broadly licensed the system","Sony exited the market","Government intervention"],ans:1,exp:"JVC's broad licensing fueled greater market penetration for VHS."},
-  {q:"Why does the QWERTY layout persist?",opts:["Fastest typing","Most advanced","Collective lock-in effect","Government mandate"],ans:2,exp:"QWERTY is the classic case of collective lock-in—even a superior Dvorak keyboard couldn't displace it."},
-  {q:"Who captured most value in the PC market?",opts:["IBM","Apple","Intel and Microsoft","Dell"],ans:2,exp:"IBM built the dominant platform but Intel and Microsoft captured the most value by owning core standard technologies."},
-  {q:"The core tradeoff in platform strategy is?",opts:["Cost vs quality","Speed vs accuracy","Market penetration vs value appropriation","Scale vs scope"],ans:2,exp:"Platform owners must balance maximizing market penetration with maximizing their own value capture."},
-  {q:"Google Android is classified as?",opts:["Closed proprietary standard","Government-mandated standard","Open source standard","No standard"],ans:2,exp:"Android is open source—freely available for use, modification, and development."},
-  {q:"Key resources for winning standards wars do NOT include?",opts:["Installed base control","IP rights","Brand reputation","Government subsidies"],ans:3,exp:"Shapiro and Varian emphasize installed base, IP rights, innovation capability, first-mover advantage, and brand."},
-  {q:"What event triggered market tipping in Blu-ray vs HD-DVD?",opts:["Sony price cut","Government decision","Warner Brothers defecting to Sony camp","Technology breakthrough"],ans:2,exp:"Warner Brothers' defection to Sony was critical to the market tipping suddenly in Sony's favor."}
-],
-
-m5_nav:"5. Organizing & Open Innovation", m5_title:"Organizing & Open Innovation",
-m5_p1:"Invention is an act of creativity, while innovation requires collaboration and cross-functional integration. Creativity is typically individual—establishing meaningful new relationships between concepts. But individual creativity depends heavily on the organizational environment: R&D lab productivity critically depends on communication networks among engineers and scientists.",
-m5_p2:"Open Innovation seeks, exploits, and applies knowledge from both inside and outside the organization. Henry Chesbrough notes: \"In a world of abundant knowledge, not all smart people work for you, so you'd better find them, connect to them, and build upon what they can do.\" P&G's Connect and Develop and IBM's Innovation Jam are exemplary cases.",
-m5_p3:"Key organizational innovation mechanisms include: cross-functional product development teams, product champions, and corporate incubators. 3M has a long tradition of product champions—individuals propose ideas, convince colleagues, become project managers. Cisco's EMTG collected 400 new business ideas within 18 months.",
-m5_cards:[
-  {title:"Creative Organization Conditions",desc:"Egalitarian culture, autonomy, recognition, diverse teams, and constructive conflict"},
-  {title:"P&G Connect & Develop",desc:"70 technology entrepreneurs searching externally; 35% of new products from outside"},
-  {title:"IBM Innovation Jam",desc:"150,000 participants in 72-hour online brainstorm; $100M budget for 10 new ventures"},
-  {title:"Product Champion System",desc:"Idea originators lead development teams from invention through commercialization"}
-],
-m5_terms:[
-  {front:"Open Innovation",back:"Seeking, exploiting, and applying knowledge from both inside and outside the organization—because not all smart people work for you"},
-  {front:"Product Champion",back:"The committed individual who drives innovation past organizational resistance—Schön found that new ideas either find a champion or die"},
-  {front:"Corporate Incubator",back:"Business development units nurturing internally-developed technologies into new ventures; must be closely linked to core business to succeed"}
-],
-m5_q:[
-  {q:"Which is NOT a condition for organizational creativity?",opts:["Egalitarian culture","Strict hierarchical control","Diverse teams","Constructive conflict"],ans:1,exp:"Innovative organizations need flat structures, not strict hierarchical control."},
-  {q:"What was the result of P&G's Connect and Develop?",opts:["Failed completely","35% of new products from outside","All internally developed","Used only for basic research"],ans:1,exp:"By 2005, 35% of P&G's new product launches originated outside the company."},
-  {q:"Chesbrough's core open innovation idea is?",opts:["All innovation should be secret","In an abundant knowledge world, connect with external smart people","Only partner with universities","Reduce R&D spending"],ans:1,exp:"In a world of abundant knowledge, find external talent and build upon their capabilities."},
-  {q:"Schön's key finding about product champions?",opts:["Champions don't matter","New ideas need a champion or they die","Management should make all decisions","Champions must be CEOs"],ans:1,exp:"Schön's study of 15 major innovations concluded: new ideas either find a champion or die."},
-  {q:"The main structural difference between innovative and operating organizations?",opts:["Innovative ones are more bureaucratic","Innovative ones emphasize hierarchy","Innovative ones use flat, task-oriented teams","No difference"],ans:2,exp:"Innovative organizations need flat structures, task-oriented teams, and fuzzy boundaries."},
-  {q:"How many people participated in IBM's Innovation Jam?",opts:["1,500","15,000","150,000","1,500,000"],ans:2,exp:"IBM's Innovation Jam attracted 150,000 participants within 72 hours."},
-  {q:"Common failure reason for corporate incubators?",opts:["Insufficient funding","Disconnection from core business","Technology too new","Too many employees"],ans:1,exp:"Hamel and Prahalad noted many incubators became orphanages for unloved ideas lacking internal support."},
-  {q:"3M's innovation culture is characterized by?",opts:["Top-down R&D direction","Employees propose ideas and become project managers","Fully outsourced R&D","Discouraging experimentation"],ans:1,exp:"3M encourages employees to propose ideas, convince colleagues, and become project managers to lead development."}
-],
-
-m6_nav:"6. Resources", m6_title:"Extended Learning Resources", m6_desc:"Curated academic, industry, and practical resources related to technology innovation management.",
-mlab_nav:"7. Interactive Lab", mlab_title:"Interactive Laboratory", mlab_desc:"Explore core concepts of tech innovation management through interactive simulators. Adjust parameters to observe strategic dynamics.",
-mlab_labs:[
-  {title:"Technology S-Curve Simulator",desc:"Observe the nonlinear relationship between R&D effort and performance"},
-  {title:"Innovation Funnel",desc:"From 3,000 ideas to 1 successful product"},
-  {title:"Network Externality Simulator",desc:"Network value under Metcalfe's Law"},
-  {title:"Appropriability Regime Analyzer",desc:"Combined assessment of patents, lead time, and complementary resources"},
-  {title:"Leader vs Follower",desc:"Winner distribution across historical cases"},
-  {title:"Platform Openness Tradeoff",desc:"Market penetration vs value capture dynamics"}
-],
-
-date:"Version 2026.03.29",
-copyright:"For Educational Use Only",
-architect_label:"Architect:",
-architect_name:"Prof. Shihmin Lo",
-architect_url:"https://www.ibs.ncnu.edu.tw/index.php/faculty/tenured-professor/299-smlo"
-}
-};
-
-/* ── APP ── */
+/* ═══════ APP ═══════ */
 function App() {
   const [lang, setLang] = useState('zh');
   const [isDark, setIsDark] = useState(false);
   const [module, setModule] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [ttsState, setTtsState] = useState('idle');
-  const [studentInfo, setStudentInfo] = useState({group:'',dept:'',id:'',name:''});
+  const [studentInfo, setStudentInfo] = useState({ group:'', dept:'', id:'', name:'' });
   const [analytics, setAnalytics] = useState({
     time: Array(TOTAL).fill(0), clicks: Array(TOTAL).fill(0),
-    quizCorrect: Array(TOTAL).fill(0), quizAnswered: Array(TOTAL).fill(0), quizTotal: Array(TOTAL).fill(0)
+    quizCorrect: Array(TOTAL).fill(0), quizTotal: Array(TOTAL).fill(0), quizAnswered: Array(TOTAL).fill(0)
   });
-  const contentRef = useRef(null);
   const menuRef = useRef(null);
   const t = dict[lang];
 
-  useEffect(()=>{document.documentElement.classList.toggle('dark',isDark)},[isDark]);
-  useEffect(()=>{window.scrollTo({top:0,behavior:'smooth'});window.speechSynthesis&&window.speechSynthesis.cancel();setTtsState('idle')},[module]);
-  useEffect(()=>{const iv=setInterval(()=>{setAnalytics(a=>{const nt=[...a.time];nt[module]++;return{...a,time:nt}})},1000);return()=>clearInterval(iv)},[module]);
-  useEffect(()=>{if(!menuOpen)return;const h=e=>{if(menuRef.current&&!menuRef.current.contains(e.target))setMenuOpen(false)};document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h)},[menuOpen]);
-
-  const handleClick=()=>{setAnalytics(a=>{const nc=[...a.clicks];nc[module]++;return{...a,clicks:nc}})};
-  // 將知識檢定的結果寫入全域分析記錄中，但不會影響各模組自身的作答狀態
-  const handleQuizSubmit=(mid,correct,total)=>{setAnalytics(a=>{const qc=[...a.quizCorrect],qa=[...a.quizAnswered],qt=[...a.quizTotal];qc[mid]=correct;qa[mid]=total;qt[mid]=8;return{...a,quizCorrect:qc,quizAnswered:qa,quizTotal:qt}})};
-
   const modulesList = [
-    {id:0,icon:"📋",num:"0",title:t.m0_nav},
-    {id:1,icon:"💡",num:"1",title:t.m1_nav},
-    {id:2,icon:"🚀",num:"2",title:t.m2_nav},
-    {id:3,icon:"🏁",num:"3",title:t.m3_nav},
-    {id:4,icon:"🌐",num:"4",title:t.m4_nav},
-    {id:5,icon:"🔓",num:"5",title:t.m5_nav},
-    {id:6,icon:"📚",num:"6",title:t.m6_nav},
-    {id:7,icon:"⚡",num:"7",title:t.mlab_nav},
-    {id:8,icon:"📊",num:"8",title:lang==='zh'?'8. 學習歷程分析':'8. Analytics'}
+    {id:0,icon:"📋",num:"0",title:t.m0_nav,comp:<IconBookOpen size={16}/>},
+    {id:1,icon:"💡",num:"1",title:t.m1_nav,comp:<IconLightbulb size={16}/>},
+    {id:2,icon:"📈",num:"2",title:t.m2_nav,comp:<IconTrendingUp size={16}/>},
+    {id:3,icon:"🧭",num:"3",title:t.m3_nav,comp:<IconCompass size={16}/>},
+    {id:4,icon:"🕸️",num:"4",title:t.m4_nav,comp:<IconShareNodes size={16}/>},
+    {id:5,icon:"👥",num:"5",title:t.m5_nav,comp:<IconUsers size={16}/>},
+    {id:6,icon:"🔗",num:"6",title:t.m6_nav,comp:<IconGlobe size={16}/>},
+    {id:7,icon:"🧪",num:"7",title:t.mlab_nav,comp:<IconZapLab size={16}/>},
+    {id:8,icon:"📊",num:"8",title:lang==='zh'?'8. 學習分析':'8. Analytics',comp:<IconActivity size={16}/>}
   ];
 
+  // Dark mode
+  useEffect(()=>{ document.documentElement.classList.toggle('dark', isDark); },[isDark]);
+
+  // Timer
+  useEffect(()=>{
+    const iv = setInterval(()=>{
+      setAnalytics(a=>{ const nt=[...a.time]; nt[module]++; return {...a,time:nt}; });
+    },1000);
+    return ()=>clearInterval(iv);
+  },[module]);
+
+  // Click tracker
+  const handleContentClick = () => {
+    setAnalytics(a=>{ const nc=[...a.clicks]; nc[module]++; return {...a,clicks:nc}; });
+  };
+
+  // Quiz submit
+  const handleQuizSubmit = (mid, correct, answeredCount, totalPool) => {
+    setAnalytics(a=>{
+      const qc=[...a.quizCorrect]; qc[mid]=correct;
+      const qt=[...a.quizTotal]; qt[mid]=totalPool;
+      const qa=[...a.quizAnswered]; qa[mid]=answeredCount;
+      return {...a,quizCorrect:qc,quizTotal:qt,quizAnswered:qa};
+    });
+  };
+
+  // Module switch
+  const switchModule = (m) => {
+    window.speechSynthesis && window.speechSynthesis.cancel();
+    setTtsState('idle');
+    setModule(m);
+    window.scrollTo({top:0,behavior:'smooth'});
+  };
+
+  // Close menu on outside click
+  useEffect(()=>{
+    if(!menuOpen)return;
+    const handler=(e)=>{ if(menuRef.current&&!menuRef.current.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener('mousedown',handler);
+    return ()=>document.removeEventListener('mousedown',handler);
+  },[menuOpen]);
+
+  // TTS
   const handleTTS = (action) => {
-    if (!('speechSynthesis' in window)) return;
-    if (action==='stop'){window.speechSynthesis.cancel();setTtsState('idle');return}
-    if (action==='pause'){window.speechSynthesis.pause();setTtsState('paused');return}
-    if (action==='play'){
-      if(ttsState==='paused'){window.speechSynthesis.resume();setTtsState('playing');return}
+    if(!('speechSynthesis' in window))return;
+    if(action==='stop'){window.speechSynthesis.cancel();setTtsState('idle');return;}
+    if(action==='pause'){window.speechSynthesis.pause();setTtsState('paused');return;}
+    if(action==='play'){
+      if(ttsState==='paused'){window.speechSynthesis.resume();setTtsState('playing');return;}
       window.speechSynthesis.cancel();
-      const sep=lang==='zh'?'。 ':'. ';
+      const sep = lang==='zh'?'。 ':'. ';
       let texts=[];
-      if(module===0){texts=[t.m0_title,t.m0_intro,t.m0_why,t.m0_why_desc,...(t.m0_stats||[]).map(s=>`${s.label}: ${s.val}`),...(t.m0_modules||[]).map(m=>`${m.title}. ${m.desc}`)].filter(Boolean)}
-      else if(module>=1&&module<=5){const mk=`m${module}`;texts=[t[`${mk}_title`],...[1,2,3,4,5].map(n=>t[`${mk}_p${n}`]).filter(Boolean),...(t[`${mk}_cards`]||[]).map(c=>`${c.title}. ${c.desc}`),...(t[`${mk}_terms`]||[]).flatMap(tm=>[tm.front,tm.back])].filter(Boolean)}
-      else if(module===6){texts=[t.m6_title,t.m6_desc].filter(Boolean)}
-      else if(module===7){texts=[t.mlab_title,t.mlab_desc,...(t.mlab_labs||[]).map(l=>`${l.title}. ${l.desc}`)].filter(Boolean)}
-      else{texts=[t.analytics_title,t.analytics_desc].filter(Boolean)}
+      if(module===0){
+        texts=[t.m0_title,t.m0_intro,t.m0_why,t.m0_why_desc,...(t.m0_stats||[]).map(s=>`${s.label}: ${s.val}`),...(t.m0_modules||[]).map(m=>`${m.title}. ${m.desc}`)].filter(Boolean);
+      } else if(module>=1&&module<=5){
+        const mk=`m${module}`;
+        texts=[t[`${mk}_title`],...[1,2,3,4,5].map(n=>t[`${mk}_p${n}`]).filter(Boolean),...(t[`${mk}_cards`]||[]).map(c=>`${c.title}. ${c.desc}`),...(t[`${mk}_terms`]||[]).flatMap(tr=>[tr.front.replace('\n',' '),tr.back])].filter(Boolean);
+      } else if(module===6){
+        texts=[t.m6_title,t.m6_desc].filter(Boolean);
+      } else if(module===7){
+        texts=[t.mlab_title,t.mlab_desc].filter(Boolean);
+      } else {
+        texts=[t.analytics_title,t.analytics_desc].filter(Boolean);
+      }
       const text=texts.join(sep);
       const utterance=new SpeechSynthesisUtterance(text);
       utterance.rate=0.95;
       const voices=window.speechSynthesis.getVoices();
-      if(lang==='zh'){const v=voices.find(v=>v.lang==='zh-TW'&&v.name.includes('Yating'))||voices.find(v=>v.lang==='zh-TW')||voices.find(v=>v.lang.startsWith('zh'));if(v)utterance.voice=v;utterance.lang='zh-TW'}
-      else{const v=voices.find(v=>v.lang==='en-GB'&&(v.name.includes('Male')||v.name.includes('Daniel')))||voices.find(v=>v.lang==='en-GB')||voices.find(v=>v.lang.startsWith('en'));if(v)utterance.voice=v;utterance.lang='en-GB'}
-      utterance.onend=()=>setTtsState('idle');utterance.onerror=()=>setTtsState('idle');
-      window.speechSynthesis.speak(utterance);setTtsState('playing');
+      if(lang==='zh'){
+        const v=voices.find(v=>v.lang==='zh-TW'&&v.name.includes('Yating'))||voices.find(v=>v.lang==='zh-TW')||voices.find(v=>v.lang.startsWith('zh'));
+        if(v)utterance.voice=v; utterance.lang='zh-TW';
+      } else {
+        const v=voices.find(v=>v.lang==='en-GB'&&(v.name.includes('Male')||v.name.includes('Daniel')))||voices.find(v=>v.lang==='en-GB')||voices.find(v=>v.lang.startsWith('en'));
+        if(v)utterance.voice=v; utterance.lang='en-GB';
+      }
+      utterance.onend=()=>setTtsState('idle');
+      utterance.onerror=()=>setTtsState('idle');
+      window.speechSynthesis.speak(utterance);
+      setTtsState('playing');
     }
   };
 
+  // CSV export with DOMPurify
   const exportCSV = () => {
-    const BOM="\uFEFF";
-    let csv=BOM+"Group,Dept,StudentID,Name,Module,TimeSpent(s),Clicks,QuizCorrect,QuizAnswered,QuizTotal\n";
-    modulesList.forEach((m,i)=>{csv+=`${studentInfo.group},${studentInfo.dept},${studentInfo.id},${studentInfo.name},${m.title},${analytics.time[i]},${analytics.clicks[i]},${analytics.quizCorrect[i]},${analytics.quizAnswered[i]},${analytics.quizTotal[i]}\n`});
-    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
-    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`learning_analytics_${studentInfo.id||'unknown'}.csv`;a.click();URL.revokeObjectURL(url);
+    const safeGroup = window.DOMPurify.sanitize(studentInfo.group);
+    const safeDept = window.DOMPurify.sanitize(studentInfo.dept);
+    const safeId = window.DOMPurify.sanitize(studentInfo.id);
+    const safeName = window.DOMPurify.sanitize(studentInfo.name);
+
+    const BOM='\uFEFF';
+    const header='Group,Dept,ID,Name,Module,TimeSpent(sec),Clicks,QuizCorrect,QuizAnswered,QuizTotal\n';
+    let rows='';
+    modulesList.forEach((m,i)=>{
+      rows+=`${safeGroup},${safeDept},${safeId},${safeName},${m.title},${analytics.time[i]},${analytics.clicks[i]},${analytics.quizCorrect[i]},${analytics.quizAnswered[i]},${analytics.quizTotal[i]}\n`;
+    });
+    
+    // 依據規範產生檔名：品牌_主標題_組別_學號_姓名_日期
+    const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+    const safeTitle = t.title.replace(/ /g, '_');
+    const filename = `${t.brand}_${safeTitle}_${safeGroup}_${safeId}_${safeName}_${dateStr}.csv`;
+
+    const blob=new Blob([BOM+header+rows],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=filename;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
-  const renderModule = (mKey) => {
-    const mk = `m${mKey}`;
+  // Render learning module
+  const renderLearning = (num) => {
+    const mk=`m${num}`;
     return (
       <div className="space-y-6 text-lg leading-relaxed text-slate-700 dark:text-slate-300 animate-fade-in">
-        <H2 icon={modulesList[mKey].icon} number={mKey}>{t[`${mk}_title`]}</H2>
+        <H2 icon={modulesList[num].icon} number={num}>{t[`${mk}_title`]}</H2>
         <p>{t[`${mk}_p1`]}</p>
-        {t[`${mk}_p2`]&&<p className="p-4 bg-slate-100 dark:bg-slate-800 rounded-lg italic font-serif">{t[`${mk}_p2`]}</p>}
-        {t[`${mk}_p3`]&&<p>{t[`${mk}_p3`]}</p>}
-        {t[`${mk}_p4`]&&<p>{t[`${mk}_p4`]}</p>}
-        {t[`${mk}_cards`]&&<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-          {t[`${mk}_cards`].map((c,i)=>(
-            <div key={i} className="bg-white dark:bg-slate-800 rounded-xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm">
-              <h4 className="font-bold font-serif text-[#004030] dark:text-[#D8C3A5] mb-2">{c.title}</h4>
-              <p className="text-sm text-slate-600 dark:text-slate-400">{c.desc}</p>
-            </div>
-          ))}
-        </div>}
-        <div className="mt-8">
+        {t[`${mk}_p2`] && <p className="p-4 bg-slate-100 dark:bg-slate-800 rounded-lg italic font-serif text-base">{t[`${mk}_p2`]}</p>}
+        {t[`${mk}_p3`] && <p>{t[`${mk}_p3`]}</p>}
+        {t[`${mk}_p4`] && <p>{t[`${mk}_p4`]}</p>}
+        {t[`${mk}_cards`] && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {t[`${mk}_cards`].map((c,i)=>(
+              <div key={i} className="bg-white dark:bg-slate-800 rounded-xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm">
+                <h4 className="font-serif font-bold text-[#004030] dark:text-[#D8C3A5] mb-2">{c.title}</h4>
+                <p className="text-sm text-slate-600 dark:text-slate-400">{c.desc}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="mt-8 select-none">
           <h3 className="text-lg font-bold uppercase tracking-wider text-slate-500 mb-4">{t.key_terms}</h3>
           <div key={`terms-${module}`} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {t[`${mk}_terms`].map((term,i) => <FlipCard key={i} front={term.front} back={term.back} t={t}/>)}
+            {t[`${mk}_terms`].map((term,i)=><FlipCard key={i} front={term.front} back={term.back} t={t}/>)}
           </div>
         </div>
-        {/* 注意這裡的 key 機制：這保證了每次切換 module 時，都會強制重新掛載 ModuleQuiz，清空內部答題狀態 */}
         <ModuleQuiz key={`quiz-${module}`} questions={t[`${mk}_q`]} t={t} moduleId={module} onQuizSubmit={handleQuizSubmit}/>
       </div>
     );
   };
 
+  // Render Resources
   const renderResources = () => {
-    const resources = [
-      {cat:lang==='zh'?'📖 學術與教科書':'📖 Academic & Textbooks',items:[
-        {label:lang==='zh'?'Grant - 當代策略分析 Ch.9':'Grant - Contemporary Strategy Analysis Ch.9',url:'https://www.wiley.com/en-us/Contemporary+Strategy+Analysis',desc:lang==='zh'?'本課程的核心教材章節':'Core textbook chapter for this course'},
-        {label:'Harvard Business Review - Innovation',url:'https://hbr.org/topic/innovation',desc:lang==='zh'?'HBR 創新主題精選文章':'Curated HBR articles on innovation'},
-        {label:lang==='zh'?'Chesbrough - 開放式創新':'Chesbrough - Open Innovation',url:'https://www.hbs.edu/faculty/Pages/item.aspx?num=14499',desc:lang==='zh'?'開放式創新奠基之作':'Foundational work on open innovation'}
-      ]},
-      {cat:lang==='zh'?'🏢 產業報告與組織':'🏢 Industry Reports & Organizations',items:[
-        {label:'WIPO - World Intellectual Property Organization',url:'https://www.wipo.int',desc:lang==='zh'?'全球智慧財產權數據與報告':'Global IP data and reports'},
-        {label:'BCG Most Innovative Companies',url:'https://www.bcg.com/publications/2024/most-innovative-companies',desc:lang==='zh'?'BCG 年度全球最具創新力企業排行':'Annual ranking of world\'s most innovative companies'},
-        {label:'USPTO - Patent Search',url:'https://www.uspto.gov/patents',desc:lang==='zh'?'美國專利商標局專利檢索':'US Patent and Trademark Office patent search'}
-      ]},
-      {cat:lang==='zh'?'🎓 線上課程與影片':'🎓 Online Courses & Videos',items:[
-        {label:'MIT OpenCourseWare - Innovation',url:'https://ocw.mit.edu/search/?q=innovation',desc:lang==='zh'?'MIT 創新管理開放課程':'MIT open courses on innovation management'},
-        {label:'Coursera - Strategic Innovation',url:'https://www.coursera.org/courses?query=strategic%20innovation',desc:lang==='zh'?'Coursera 策略創新課程集':'Strategic innovation courses on Coursera'}
-      ]}
+    const links = [
+      {label:lang==='zh'?'Christensen 破壞性創新理論 (HBR)':'Disruptive Innovation (HBR)',url:'https://hbr.org/2015/12/what-is-disruptive-innovation',desc:lang==='zh'?'Clayton Christensen 的破壞性創新理論原文解說':'Clayton Christensen explaining his theory'},
+      {label:lang==='zh'?'Teece (1986) 創新獲利模型':'Profiting from Tech Innovation',url:'https://www.sciencedirect.com/science/article/pii/0048733386900272',desc:lang==='zh'?'David Teece 提出的獨佔性與互補資產經典論文':'David Teece\'s classic paper on appropriability'},
+      {label:lang==='zh'?'網路外部性與平台經濟':'Network Effects & Platforms',url:'https://hbr.org/2016/04/network-effects-arent-enough',desc:lang==='zh'?'HBR 探討平台戰略與網路效應':'HBR article on platform strategies'}
     ];
     return (
-      <div className="space-y-10 animate-fade-in">
-        <H2 icon="📚" number={6}>{t.m6_title}</H2>
+      <div className="space-y-10 animate-fade-in select-none">
+        <H2 icon="🔗" number={6}>{t.m6_title}</H2>
         <p className="text-slate-600 dark:text-slate-400">{t.m6_desc}</p>
-        {resources.map((sec,si)=>(
-          <div key={si}>
-            <h4 className="flex items-center gap-2 text-base font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wide mb-3">{sec.cat}</h4>
-            <div className="grid md:grid-cols-2 gap-3">{sec.items.map((l,i)=><LinkCard key={i} {...l}/>)}</div>
-          </div>
-        ))}
+        <div className="grid md:grid-cols-2 gap-3">{links.map((l,i)=><LinkCard key={i} {...l}/>)}</div>
         <div className="bg-[#004030]/5 dark:bg-[#D8C3A5]/5 rounded-xl p-5 border border-[#004030]/20 dark:border-[#D8C3A5]/20">
-          <p className="text-sm text-slate-600 dark:text-slate-400">⚠️ {lang==='zh'?'以上連結僅供教育參考用途，連結內容由各原始網站負責，本教材不保證其持續可用性。':'Links above are for educational reference only. Content is maintained by respective websites; availability is not guaranteed.'}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">⚠️ {lang==='zh'?'以上連結為外部資源，內容可能隨時變更。請自行確認資訊的時效性與正確性。':'Links are external resources that may change. Please verify timeliness and accuracy independently.'}</p>
         </div>
       </div>
     );
   };
 
+  // Render Lab
   const renderLab = () => (
-    <div className="space-y-8 animate-fade-in">
-      <H2 icon="⚡" number={7}>{t.mlab_title}</H2>
-      <p className="mt-4 text-slate-600 dark:text-slate-400">{t.mlab_desc}</p>
-      <SCurveLab lang={lang}/>
+    <div className="space-y-8 animate-fade-in select-none">
+      <H2 icon="🧪" number={7}>{t.mlab_title}</H2>
+      <p className="text-slate-600 dark:text-slate-400">{t.mlab_desc}</p>
+      <AppropriabilityLab lang={lang}/>
       <div className="grid md:grid-cols-2 gap-6">
-        <InnovFunnelLab lang={lang}/>
-        <NetworkEffectLab lang={lang}/>
-      </div>
-      <ApproprLab lang={lang}/>
-      <div className="grid md:grid-cols-2 gap-6">
-        <LeaderFollowerLab lang={lang}/>
-        <PlatformLab lang={lang}/>
+        <DisruptiveCurveLab lang={lang}/>
+        <NetworkEffectsLab lang={lang}/>
       </div>
     </div>
   );
 
+  // Render Analytics
   const renderAnalytics = () => {
-    const totalTime=analytics.time.reduce((a,b)=>a+b,0);
-    const totalClicks=analytics.clicks.reduce((a,b)=>a+b,0);
-    const totalCorrect=analytics.quizCorrect.reduce((a,b)=>a+b,0);
-    const totalAnswered=analytics.quizAnswered.reduce((a,b)=>a+b,0);
-    const overallAcc=totalAnswered>0?((totalCorrect/totalAnswered)*100).toFixed(0)+'%':t.analytics_no_data;
-    const canExport=studentInfo.group&&studentInfo.dept&&studentInfo.id&&studentInfo.name;
+    const totalTime = analytics.time.reduce((s,v)=>s+v,0);
+    const totalClicks = analytics.clicks.reduce((s,v)=>s+v,0);
+    const totalCorrect = analytics.quizCorrect.reduce((s,v)=>s+v,0);
+    const totalAnswered = analytics.quizAnswered.reduce((s,v)=>s+v,0);
+    const overallAcc = totalAnswered>0?Math.round(totalCorrect/totalAnswered*100):0;
+    const canExport = studentInfo.group&&studentInfo.dept&&studentInfo.id&&studentInfo.name;
     return (
-      <div className="space-y-8 animate-fade-in">
+      <div className="space-y-8 animate-fade-in select-none">
         <H2 icon="📊" number={8}>{t.analytics_title}</H2>
         <p className="text-slate-600 dark:text-slate-400">{t.analytics_desc}</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white dark:bg-slate-800 rounded-xl p-5 text-center border border-slate-200 dark:border-slate-700 shadow-sm"><div className="text-2xl font-black font-serif text-[#004030] dark:text-[#D8C3A5]">{totalTime}{t.analytics_sec}</div><div className="text-xs text-slate-500">{t.analytics_total_time}</div></div>
-          <div className="bg-white dark:bg-slate-800 rounded-xl p-5 text-center border border-slate-200 dark:border-slate-700 shadow-sm"><div className="text-2xl font-black font-serif text-[#004030] dark:text-[#D8C3A5]">{totalClicks}{t.analytics_times}</div><div className="text-xs text-slate-500">{t.analytics_total_clicks}</div></div>
-          <div className="bg-white dark:bg-slate-800 rounded-xl p-5 text-center border border-slate-200 dark:border-slate-700 shadow-sm"><div className="text-2xl font-black font-serif text-[#004030] dark:text-[#D8C3A5]">{overallAcc}</div><div className="text-xs text-slate-500">{t.analytics_overall_acc}</div></div>
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-5 text-center shadow-sm border border-slate-200 dark:border-slate-700">
+            <div className="text-3xl font-black font-serif text-[#004030] dark:text-[#D8C3A5]">{totalTime}{t.analytics_sec}</div>
+            <div className="text-xs text-slate-500 mt-1">{t.analytics_total_time}</div>
+          </div>
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-5 text-center shadow-sm border border-slate-200 dark:border-slate-700">
+            <div className="text-3xl font-black font-serif text-[#004030] dark:text-[#D8C3A5]">{totalClicks}{t.analytics_times}</div>
+            <div className="text-xs text-slate-500 mt-1">{t.analytics_total_clicks}</div>
+          </div>
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-5 text-center shadow-sm border border-slate-200 dark:border-slate-700">
+            <div className="text-3xl font-black font-serif text-[#004030] dark:text-[#D8C3A5]">{overallAcc}%</div>
+            <div className="text-xs text-slate-500 mt-1">{t.analytics_overall_acc}</div>
+          </div>
         </div>
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-x-auto">
-          <table className="w-full text-sm whitespace-nowrap"><thead><tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-            <th className="text-left px-4 py-3">{t.analytics_module}</th><th className="text-right px-4 py-3">{t.analytics_time}</th><th className="text-right px-4 py-3">{t.analytics_clicks}</th><th className="text-right px-4 py-3">{t.analytics_correct_ans_total}</th>
-          </tr></thead><tbody>{modulesList.map((m,i)=>(
-            <tr key={i} className="border-b border-slate-100 dark:border-slate-700/50"><td className="px-4 py-2 font-medium">{m.title}</td><td className="text-right px-4 py-2">{analytics.time[i]}{t.analytics_sec}</td><td className="text-right px-4 py-2">{analytics.clicks[i]}{t.analytics_times}</td><td className="text-right px-4 py-2">{analytics.quizTotal[i]>0?`${analytics.quizCorrect[i]} / ${analytics.quizAnswered[i]} / ${analytics.quizTotal[i]}`:t.analytics_no_data}</td></tr>
-          ))}</tbody></table>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="bg-[#004030] text-white">
+                <th className="px-3 py-2 text-left">{t.analytics_module}</th>
+                <th className="px-3 py-2 text-center">{t.analytics_time}</th>
+                <th className="px-3 py-2 text-center">{t.analytics_clicks}</th>
+                <th className="px-3 py-2 text-center">{t.analytics_correct_ans_total}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {modulesList.map((m,i)=>(
+                <tr key={i} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                  <td className="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">{m.title}</td>
+                  <td className="px-3 py-2 text-center">{analytics.time[i]}{t.analytics_sec}</td>
+                  <td className="px-3 py-2 text-center">{analytics.clicks[i]}{t.analytics_times}</td>
+                  <td className="px-3 py-2 text-center">{analytics.quizTotal[i]>0?`${analytics.quizCorrect[i]} / ${analytics.quizAnswered[i]} / ${analytics.quizTotal[i]}`:t.analytics_no_data}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
         <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-          <h3 className="font-bold font-serif text-[#004030] dark:text-[#D8C3A5] mb-4">{t.analytics_form_title}</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><label className="text-sm text-slate-500 block mb-1">{t.analytics_group}</label><select value={studentInfo.group} onChange={e=>setStudentInfo(s=>({...s,group:e.target.value}))} className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-sm"><option value="">--</option>{t.group_options.map(g=><option key={g} value={g}>{g}</option>)}</select></div>
-            <div><label className="text-sm text-slate-500 block mb-1">{t.analytics_dept}</label><input placeholder={t.analytics_dept_ph} value={studentInfo.dept} onChange={e=>setStudentInfo(s=>({...s,dept:e.target.value}))} className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-sm"/></div>
-            <div><label className="text-sm text-slate-500 block mb-1">{t.analytics_id}</label><input placeholder={t.analytics_id_ph} value={studentInfo.id} onChange={e=>setStudentInfo(s=>({...s,id:e.target.value}))} className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-sm"/></div>
-            <div><label className="text-sm text-slate-500 block mb-1">{t.analytics_name}</label><input placeholder={t.analytics_name_ph} value={studentInfo.name} onChange={e=>setStudentInfo(s=>({...s,name:e.target.value}))} className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 text-sm"/></div>
+          <h3 className="font-serif font-bold text-[#004030] dark:text-[#D8C3A5] mb-4">{t.analytics_form_title}</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-slate-600 dark:text-slate-400">{t.analytics_group}</label>
+              <select value={studentInfo.group} onChange={e=>setStudentInfo(s=>({...s,group:e.target.value}))}
+                className="w-full mt-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                <option value="">--</option>
+                {t.group_options.map(g=><option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-600 dark:text-slate-400">{t.analytics_dept}</label>
+              <input placeholder={t.analytics_dept_ph} value={studentInfo.dept} onChange={e=>setStudentInfo(s=>({...s,dept:e.target.value}))}
+                className="w-full mt-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300"/>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-600 dark:text-slate-400">{t.analytics_id}</label>
+              <input placeholder={t.analytics_id_ph} value={studentInfo.id} onChange={e=>setStudentInfo(s=>({...s,id:e.target.value}))}
+                className="w-full mt-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300"/>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-600 dark:text-slate-400">{t.analytics_name}</label>
+              <input placeholder={t.analytics_name_ph} value={studentInfo.name} onChange={e=>setStudentInfo(s=>({...s,name:e.target.value}))}
+                className="w-full mt-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300"/>
+            </div>
           </div>
-          <button onClick={exportCSV} disabled={!canExport} className="mt-4 px-6 py-2 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] font-bold rounded-lg disabled:opacity-40 transition-all text-sm">{canExport?t.analytics_export_csv:t.analytics_fill_required}</button>
+          <div className="mt-4">
+            <button onClick={exportCSV} disabled={!canExport} className="px-6 py-2 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] font-bold rounded-lg disabled:opacity-40 transition-colors">
+              {canExport?t.analytics_export_csv:t.analytics_fill_required}
+            </button>
+          </div>
         </div>
       </div>
     );
   };
 
+  // Render content
   const renderContent = () => {
     switch(module){
       case 0: return (
         <div className="space-y-8 text-lg leading-relaxed text-slate-700 dark:text-slate-300 animate-fade-in">
-          <div className="bg-[#004030] dark:bg-slate-800 rounded-2xl p-6 sm:p-8 text-white">
+          <div className="bg-[#004030] dark:bg-slate-800 rounded-2xl p-6 sm:p-8 text-white select-none">
             <p className="text-xs font-bold uppercase tracking-widest text-[#D8C3A5] mb-3">{lang==='zh'?'課程簡介':'Course Introduction'}</p>
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-serif font-black text-white mb-4">{t.m0_title}</h2>
             <p className="text-[#D8C3A5]/90 text-base leading-relaxed">{t.m0_intro}</p>
           </div>
-          <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border-l-4 border-[#D8C3A5] shadow-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border-l-4 border-[#D8C3A5] shadow-sm select-none">
             <h3 className="text-xl font-bold font-serif text-[#004030] dark:text-[#D8C3A5] mb-3">{t.m0_why}</h3>
             <p className="text-base text-slate-600 dark:text-slate-400">{t.m0_why_desc}</p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 select-none">
             {t.m0_stats.map((s,i)=>(
               <div key={i} className="bg-white dark:bg-slate-800 rounded-xl p-5 text-center shadow-sm border border-slate-200 dark:border-slate-700">
                 <div className="text-2xl md:text-3xl font-black font-serif text-[#004030] dark:text-[#D8C3A5] mb-1">{s.val}</div>
@@ -874,27 +997,31 @@ function App() {
               </div>
             ))}
           </div>
-          <div>
+          <div className="select-none">
             <h3 className="text-lg font-bold uppercase tracking-wider text-slate-500 mb-4">{lang==='zh'?'課程模組':'Course Modules'}</h3>
             <div className="space-y-3">
               {t.m0_modules.map((m,i)=>(
-                <button key={i} onClick={()=>setModule(i+1)} className="w-full flex items-center gap-5 bg-white dark:bg-slate-800 rounded-xl px-6 py-4 border border-slate-200 dark:border-slate-700 hover:border-[#004030] dark:hover:border-[#D8C3A5] hover:shadow-md transition-all group text-left">
+                <button key={i} onClick={()=>switchModule(i+1)}
+                  className="w-full flex items-center gap-5 bg-white dark:bg-slate-800 rounded-xl px-6 py-4 border border-slate-200 dark:border-slate-700 hover:border-[#004030] dark:hover:border-[#D8C3A5] hover:shadow-md transition-all group text-left">
                   <div className="text-3xl font-black font-serif text-[#D8C3A5] w-10 shrink-0">{m.num}</div>
                   <div className="flex-1 min-w-0">
                     <div className="font-bold font-serif text-[#004030] dark:text-[#D8C3A5] mb-1">{m.title}</div>
-                    <div className="text-sm text-slate-500">{m.desc}</div>
+                    <div className="text-sm text-slate-500 dark:text-slate-400">{m.desc}</div>
                   </div>
-                  <IconChevronRight size={20} className="text-slate-300 group-hover:text-[#004030] dark:group-hover:text-[#D8C3A5] transition-colors shrink-0"/>
+                  <IconChevronRight size={20} className="text-slate-300 group-hover:text-[#004030] dark:group-hover:text-[#D8C3A5] shrink-0 transition-colors"/>
                 </button>
               ))}
             </div>
           </div>
-          <div className="flex justify-end">
-            <button onClick={()=>setModule(1)} className="px-8 py-3 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] font-serif font-bold hover:bg-[#002b20] dark:hover:bg-white rounded-lg shadow-md transition-all">{t.m0_start}</button>
+          <div className="flex justify-end select-none">
+            <button onClick={()=>switchModule(1)}
+              className="px-8 py-3 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] font-serif font-bold hover:bg-[#002b20] dark:hover:bg-white uppercase text-sm tracking-wider shadow-md rounded-lg transition-all">
+              {t.m0_start}
+            </button>
           </div>
         </div>
       );
-      case 1: case 2: case 3: case 4: case 5: return renderModule(module);
+      case 1: case 2: case 3: case 4: case 5: return renderLearning(module);
       case 6: return renderResources();
       case 7: return renderLab();
       case 8: return renderAnalytics();
@@ -904,18 +1031,26 @@ function App() {
 
   return (
     <div className={`min-h-screen bg-[#f4f4f4] dark:bg-[#121212] font-sans flex flex-col overflow-x-hidden pt-16 selection:bg-[#004030] selection:text-white dark:selection:bg-[#D8C3A5] dark:selection:text-[#004030]`}>
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 h-16 bg-[#004030] dark:bg-slate-900 text-white z-50 shadow-lg border-b border-[#D8C3A5]/30">
+      {/* HEADER */}
+      <header className="fixed top-0 left-0 right-0 h-16 bg-[#004030] dark:bg-slate-900 text-white z-50 shadow-lg border-b border-[#D8C3A5]/30 select-none">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
+            {/* Hamburger */}
             <div className="relative" ref={menuRef}>
-              <button onClick={()=>setMenuOpen(!menuOpen)} className="p-2 hover:bg-white/10 rounded-lg transition-colors" aria-label="Toggle menu">{menuOpen?<IconX size={20}/>:<IconMenu size={20}/>}</button>
-              {menuOpen&&(
+              <button onClick={()=>setMenuOpen(!menuOpen)} className="p-2 hover:bg-white/10 rounded-lg transition-colors" aria-label="Toggle menu">
+                {menuOpen ? <IconX size={20}/> : <IconMenu size={20}/>}
+              </button>
+              {menuOpen && (
                 <div className="absolute top-full left-0 mt-1 w-64 max-w-[calc(100vw-2rem)] max-h-[calc(100vh-5rem)] overflow-y-auto bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 z-[100] overflow-x-hidden">
-                  <div className="bg-[#004030]/5 dark:bg-[#D8C3A5]/5 px-4 py-2 border-b border-slate-200 dark:border-slate-700"><p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{t.nav_modules}</p></div>
+                  <div className="bg-[#004030]/5 dark:bg-[#D8C3A5]/5 px-4 py-2 border-b border-slate-200 dark:border-slate-700">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{t.nav_modules}</p>
+                  </div>
                   {modulesList.map(m=>(
-                    <button key={m.id} onClick={()=>{setModule(m.id);setMenuOpen(false)}}
-                      className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left ${module===m.id?'bg-[#004030] text-white dark:bg-[#D8C3A5]/20 dark:text-[#D8C3A5] font-bold':'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}>
+                    <button key={m.id} onClick={()=>{switchModule(m.id);setMenuOpen(false);}}
+                      className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left
+                        ${module===m.id
+                          ?'bg-[#004030] text-white dark:bg-[#D8C3A5]/20 dark:text-[#D8C3A5] font-bold'
+                          :'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}>
                       <span className={module===m.id?'text-[#D8C3A5]':'opacity-50'}>{m.icon}</span>
                       <span className="truncate">{m.title}</span>
                     </button>
@@ -923,53 +1058,88 @@ function App() {
                 </div>
               )}
             </div>
+            {/* Brand */}
             <button onClick={()=>window.scrollTo({top:0,behavior:'smooth'})} className="flex items-center gap-2 text-white hover:text-[#D8C3A5] transition-colors">
               <span className="font-serif font-black text-[#D8C3A5] text-lg tracking-widest">{t.brand}</span>
-              <span className="font-serif font-bold text-white text-sm hidden sm:inline">{t.title}</span>
+              <span className="font-serif font-bold text-white text-sm hidden sm:inline truncate max-w-[200px]">{t.title}</span>
             </button>
           </div>
+          {/* Controls */}
           <div className="flex items-center gap-1 sm:gap-2">
             <div className="flex items-center gap-1 mr-1 sm:mr-2">
-              {ttsState==='idle'&&<button onClick={()=>handleTTS('play')} className="p-1.5 hover:bg-white/10 rounded-lg" title={t.audio_read}><IconPlay size={16}/></button>}
-              {ttsState==='playing'&&<><button onClick={()=>handleTTS('pause')} className="p-1.5 hover:bg-white/10 rounded-lg"><IconPause size={16}/></button><button onClick={()=>handleTTS('stop')} className="p-1.5 hover:bg-white/10 rounded-lg"><IconSquare size={16}/></button></>}
-              {ttsState==='paused'&&<><button onClick={()=>handleTTS('play')} className="p-1.5 hover:bg-white/10 rounded-lg"><IconPlay size={16}/></button><button onClick={()=>handleTTS('stop')} className="p-1.5 hover:bg-white/10 rounded-lg"><IconSquare size={16}/></button></>}
+              {ttsState==='idle' && <button onClick={()=>handleTTS('play')} className="p-1.5 hover:bg-white/10 rounded-lg" title={t.audio_read}><IconPlay size={16}/></button>}
+              {ttsState==='playing' && <>
+                <button onClick={()=>handleTTS('pause')} className="p-1.5 hover:bg-white/10 rounded-lg"><IconPause size={16}/></button>
+                <button onClick={()=>handleTTS('stop')} className="p-1.5 hover:bg-white/10 rounded-lg"><IconSquare size={16}/></button>
+              </>}
+              {ttsState==='paused' && <>
+                <button onClick={()=>handleTTS('play')} className="p-1.5 hover:bg-white/10 rounded-lg"><IconPlay size={16}/></button>
+                <button onClick={()=>handleTTS('stop')} className="p-1.5 hover:bg-white/10 rounded-lg"><IconSquare size={16}/></button>
+              </>}
             </div>
-            <button onClick={()=>{setLang(l=>l==='zh'?'en':'zh');window.speechSynthesis&&window.speechSynthesis.cancel();setTtsState('idle')}} className="px-2 py-1 text-xs sm:text-sm font-bold bg-white/10 hover:bg-white/20 rounded-lg transition-colors">{lang==='zh'?'EN':'中'}</button>
-            <button onClick={()=>setIsDark(d=>!d)} className="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg">{isDark?<IconSun size={18}/>:<IconMoon size={18}/>}</button>
+            <button onClick={()=>setLang(l=>l==='zh'?'en':'zh')} className="px-2 py-1 text-xs sm:text-sm font-bold border border-[#D8C3A5]/50 rounded-lg hover:bg-white/10 transition-colors">
+              {lang==='zh'?'EN':'中'}
+            </button>
+            <button onClick={()=>setIsDark(!isDark)} className="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg transition-colors">
+              {isDark?<IconSun size={18}/>:<IconMoon size={18}/>}
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Body */}
+      {/* BODY */}
       <div className="flex-1 flex max-w-7xl mx-auto w-full px-3 sm:px-4 lg:px-6 py-6 gap-6">
-        <aside className="hidden md:block w-64 shrink-0">
-          <div className="sticky top-20 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-            <div className="bg-[#004030]/5 dark:bg-[#D8C3A5]/5 px-4 py-3 border-b border-slate-200 dark:border-slate-700"><p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{t.nav_modules}</p></div>
+        {/* Sidebar */}
+        <aside className="hidden md:block w-64 shrink-0 select-none">
+          <div className="sticky top-20 space-y-1">
             {modulesList.map(m=>(
-              <button key={m.id} onClick={()=>setModule(m.id)} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left ${module===m.id?'bg-[#004030] text-white dark:bg-[#D8C3A5]/20 dark:text-[#D8C3A5] font-bold':'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}>
-                <span className={module===m.id?'text-[#D8C3A5]':'opacity-50'}>{m.icon}</span>
+              <button key={m.id} onClick={()=>switchModule(m.id)}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all text-left
+                  ${module===m.id
+                    ?'bg-[#004030] text-white dark:bg-[#D8C3A5]/20 dark:text-[#D8C3A5] font-bold shadow-sm'
+                    :'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-[#004030] dark:hover:text-[#D8C3A5]'}`}>
+                <span className={module===m.id?'text-[#D8C3A5]':'opacity-60'}>{m.icon}</span>
                 <span className="truncate">{m.title}</span>
               </button>
             ))}
           </div>
         </aside>
-        <main className="flex-1 min-w-0" onClick={handleClick} ref={contentRef}>
+
+        {/* Main */}
+        <main className="flex-1 min-w-0" onClick={handleContentClick}>
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 sm:p-6 md:p-8">
             {renderContent()}
-            <div className="mt-12 flex justify-between items-center pt-8 border-t border-slate-300 dark:border-slate-700">
-              <button onClick={()=>setModule(Math.max(0,module-1))} disabled={module===0} className="px-6 py-3 font-serif font-bold text-slate-500 hover:text-[#004030] dark:hover:text-[#D8C3A5] disabled:opacity-0 uppercase text-sm tracking-wider flex items-center transition-colors">← {t.nav_prev}</button>
-              <button onClick={()=>setModule(Math.min(TOTAL-1,module+1))} disabled={module===TOTAL-1} className="px-8 py-3 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] font-serif font-bold hover:bg-[#002b20] dark:hover:bg-white disabled:opacity-0 uppercase text-sm tracking-wider shadow-md flex items-center transition-all">{t.nav_next} <IconArrowRight size={16} className="ml-2"/></button>
-            </div>
+          </div>
+          {/* Bottom nav */}
+          <div className="mt-6 flex justify-between items-center pt-6 border-t border-slate-300 dark:border-slate-700 select-none">
+            <button onClick={()=>switchModule(Math.max(0,module-1))} disabled={module===0}
+              className="px-4 sm:px-6 py-3 font-serif font-bold text-slate-500 hover:text-[#004030] dark:hover:text-[#D8C3A5] disabled:opacity-0 uppercase text-sm tracking-wider flex items-center transition-colors">
+              ← {t.nav_prev}
+            </button>
+            <button onClick={()=>switchModule(Math.min(TOTAL-1,module+1))} disabled={module===TOTAL-1}
+              className="px-6 sm:px-8 py-3 bg-[#004030] dark:bg-[#D8C3A5] text-white dark:text-[#004030] font-serif font-bold hover:bg-[#002b20] dark:hover:bg-white disabled:opacity-0 uppercase text-sm tracking-wider shadow-md flex items-center rounded-lg transition-all">
+              {t.nav_next} <IconArrowRight size={16} className="ml-2"/>
+            </button>
           </div>
         </main>
       </div>
 
-      {/* Footer */}
-      <footer className="h-8 bg-[#004030] flex items-center justify-between px-4 shrink-0">
-        <span className="text-[#D8C3A5]/60 text-[10px] sm:text-xs">{t.date} · {t.copyright}</span>
+      {/* FOOTER */}
+      <footer className="h-8 bg-[#004030] flex items-center justify-between px-4 shrink-0 select-none">
+        <span className="text-[#D8C3A5]/60 text-[10px] sm:text-xs truncate">{t.date} · {t.copyright}</span>
         <span className="text-[#D8C3A5]/60 text-[10px] sm:text-xs flex items-center gap-3">
-          <span className="flex items-center gap-1">Architect:&nbsp;<a href={t.architect_url} target="_blank" rel="noopener noreferrer" className="text-[#D8C3A5] hover:text-white underline underline-offset-2 transition-colors">Prof. Shihmin Lo</a></span>
-          <button onClick={()=>window.scrollTo({top:0,behavior:'smooth'})} className="text-[#D8C3A5] hover:text-white transition-colors font-bold cursor-pointer">Top ↑</button>
+          <span className="flex items-center gap-1">
+            Architect:&nbsp;
+            <a href="https://www.ibs.ncnu.edu.tw/index.php/faculty/tenured-professor/299-smlo"
+              target="_blank" rel="noopener noreferrer"
+              className="text-[#D8C3A5] hover:text-white underline underline-offset-2 transition-colors">
+              Prof. Shihmin Lo
+            </a>
+          </span>
+          <button onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}
+            className="text-[#D8C3A5] hover:text-white transition-colors font-bold cursor-pointer">
+            Top ↑
+          </button>
         </span>
       </footer>
     </div>
